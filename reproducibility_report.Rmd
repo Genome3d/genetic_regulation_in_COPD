@@ -1,0 +1,31 @@
+---
+title: "Genetic regulation in COPD"
+author: "Evgeniia Golovina"
+date: "26/05/2021"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, message=FALSE)
+
+# install.packages("pacman")
+# load libraries
+pacman::p_load(ggplot2, pander, dplyr, tidyr, reshape2, RColorBrewer, gprofiler2)
+```
+
+This is a reproducibility report for "COPD" study. 
+
+Python (version 3.6.9), R (version 4.0.2) and RStudio (version 1.2.5033) were used for data processing, analysis and visualisation.  
+
+
+### 1. Identification of significant spatial eQTL SNP-gene interactions using CoDeS3D.
+
+First, we run CoDeS3D pipeline to get regulatory interactions across fetal cortical tissue: `python codes3d/codes3d.py -s data/snps/264_COPD_snps_5E-8.txt -o results/codes3d/adult_lung -n Lung_cells_Schmitt2016 -t Lung`.
+
+```{r loading_codes3d_results}
+
+
+```
+
+
+
