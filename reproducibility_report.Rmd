@@ -1,5 +1,5 @@
 ---
-title: "Genetic regulation in Chronic obstructive pulmonary disease (COPD)"
+title: "De novo discovery of traits co-occurring with chronic obstructive pulmonary disease"
 author: "Evgeniia Golovina"
 date: "26/05/2021"
 output: html_document
@@ -18,7 +18,7 @@ pacman::p_load(ggplot2, pander, dplyr, tidyr, ggrepel, tidyverse, reshape2, RCol
 # colors: lung - #009444
 ```
 
-This is a reproducibility report for "Chronic obstructive pulmonary disease (COPD)" study. 
+This is a reproducibility report for "De novo discovery of traits co-occurring with chronic obstructive pulmonary disease" study. 
 
 Python (version 3.6.9), R (version 4.0.2) and RStudio (version 1.2.5033) were used for data processing, analysis and visualisation.
 
@@ -36,10 +36,7 @@ Python (version 3.6.9), R (version 4.0.2) and RStudio (version 1.2.5033) were us
 
 ### 1. Identification of significant spatial eQTL SNP-gene interactions using CoDeS3D.
 
-First, we run CoDeS3D pipeline to get COPD-associated spatial regulatory interactions across lung tissue (using GTEx lung eQTL data and Hi-C libraries for primary lung cells): `python codes3d/codes3d.py -s data/snps/263_COPD_snps_5E-8.txt -o results/codes3d/lung -n Lung_cells_Schmitt2016 -t Lung`.
-To identify spatial regulatory interactions across lung tissue (using GTEx lung eQTL data), we run CoDeS3D pipeline as follows: `python codes3d/codes3d.py -s data/snps/263_COPD_snps_5E-8.txt -o results/codes3d/non-spatial_lung -t Lung --non-spatial`.
-
-[TODO: add CoDeS3D runs for CAD and UD]
+First, we run CoDeS3D pipeline to get COPD-associated spatial regulatory interactions across lung tissue (using GTEx lung eQTL data and Hi-C libraries for primary lung cells): `python codes3d/codes3d.py -s data/snps/263_copd_snps_5E-8.txt -o results/codes3d/lung -n Lung_cells_Schmitt2016 -t Lung`.
 
 ### 1. Construction of the entire lung-specific gene regulatory map (GRN).
 
@@ -47,13 +44,6 @@ To identify spatial regulatory interactions across lung tissue (using GTEx lung 
 
 ```{r lung_map_eqtls_vs_noneqtls}
 ### Getting number of SNPs vs eQTLs in lung across the entire genome
-lung.map.genome <- data.frame(
-  snps = rep(c("eQTL","non-eQTL")),
-  number = c((68691+53606+44440+37347+40217+52470+38671+27013+29119+34254+34484+36661+16228+25223+26972+26253+37921+12253+41506+18394+10491+18874+8963), 
-             ((3334642-68691)+(3567151-53606)+(2998105-44440)+(2959792-37347)+(2720716-40217)+(2630808-52470)+(2463152-38671)+(2338798-27013)+(1845712-29119)+(2087550-34254)+(2069637-34484)+(1980922-36661)+(1482503-16228)+(1351182-25223)+(1228094-26972)+(1369954-26253)+(1197638-37921)+(1177443-12253)+(950881-41506)+(964899-18394)+(564805-10491)+(589218-18874)+(1300495-8963))),
-  percentage = c(round(((68691+53606+44440+37347+40217+52470+38671+27013+29119+34254+34484+36661+16228+25223+26972+26253+37921+12253+41506+18394+10491+18874+8963)/(3334642+3567151+2998105+2959792+2720716+2630808+2463152+2338798+1845712+2087550+2069637+1980922+1482503+1351182+1228094+1369954+1197638+1177443+950881+964899+564805+589218+1300495))*100, 2),
-                 round((((3334642-68691)+(3567151-53606)+(2998105-44440)+(2959792-37347)+(2720716-40217)+(2630808-52470)+(2463152-38671)+(2338798-27013)+(1845712-29119)+(2087550-34254)+(2069637-34484)+(1980922-36661)+(1482503-16228)+(1351182-25223)+(1228094-26972)+(1369954-26253)+(1197638-37921)+(1177443-12253)+(950881-41506)+(964899-18394)+(564805-10491)+(589218-18874)+(1300495-8963))/(3334642+3567151+2998105+2959792+2720716+2630808+2463152+2338798+1845712+2087550+2069637+1980922+1482503+1351182+1228094+1369954+1197638+1177443+950881+964899+564805+589218+1300495))*100, 2)))
-
 lung.map.genome <- data.frame(
   snps = rep(c("eQTL","non-eQTL")),
   number = c(740028, (43174097-740028)),
@@ -67,59 +57,6 @@ ggplot(lung.map.genome, aes(x = "", y = percentage, fill = snps)) +
   #geom_text(aes(y = percentage, label = snps), color = "white")+
   #scale_fill_manual(values = mycols) +
   theme_void()
-#dev.off()
-
-### Getting number of SNPs vs eQTLs in lung per chromosome
-lung.map <- data.frame(
-    chr = rep(c("chr1", "chr2", "chr3", "chr4", "chr5", "chr6", "chr7", "chr8", "chr9", "chr10", "chr11",
-            "chr12", "chr13", "chr14", "chr15", "chr16", "chr17", "chr18", "chr19", "chr20", "chr21",
-            "chr22", "chrX"), each=1),
-    snps = rep(c("eQTL","non-eQTL"), each=23),
-    number = c(68691, 53606, 44440, 37347, 40217, 52470, 38671, 27013, 29119, 34254, 34484, 36661, 16228,
-               25223, 26972, 26253, 37921, 12253, 41506, 18394, 10491, 18874, 8963,
-               (3334642-68691), (3567151-53606), (2998105-44440), (2959792-37347), (2720716-40217), 
-               (2630808-52470), (2463152-38671), (2338798-27013), (1845712-29119), (2087550-34254),
-               (2069637-34484), (1980922-36661), (1482503-16228), (1351182-25223), (1228094-26972),
-               (1369954-26253), (1197638-37921), (1177443-12253), (950881-41506), (964899-18394),
-               (564805-10491), (589218-18874), (1300495-8963)),
-    percentage = c(round(68691/3334642*100, 2), round(53606/3567151*100, 2), round(44440/2998105*100, 2),
-                   round(37347/2959792*100, 2), round(40217/2720716*100, 2), round(52470/2630808*100, 2),
-                   round(38671/2463152*100, 2), round(27013/2338798*100, 2), round(29119/1845712*100, 2),
-                   round(34254/2087550*100, 2), round(34484/2069637*100, 2), round(36661/1980922*100, 2),
-                   round(16228/1482503*100, 2), round(25223/1351182*100, 2), round(26972/1228094*100, 2),
-                   round(26253/1369954*100, 2), round(37921/1197638*100, 2), round(12253/1177443*100, 2),
-                   round(41506/950881*100, 2), round(18394/964899*100, 2), round(10491/564805*100, 2),
-                   round(18874/589218*100, 2), round(8963/1300495*100, 2),
-                   round((3334642-68691)/3334642*100, 2), round((3567151-53606)/3567151*100, 2),
-                   round((2998105-44440)/2998105*100, 2), round((2959792-37347)/2959792*100, 2),
-                   round((2720716-40217)/2720716*100, 2), round((2630808-52470)/2630808*100, 2),
-                   round((2463152-38671)/2463152*100, 2), round((2338798-27013)/2338798*100, 2),
-                   round((1845712-29119)/1845712*100, 2), round((2087550-34254)/2087550*100, 2),
-                   round((2069637-34484)/2069637*100, 2), round((1980922-36661)/1980922*100, 2),
-                   round((1482503-16228)/1482503*100, 2), round((1351182-25223)/1351182*100, 2),
-                   round((1228094-26972)/1228094*100, 2), round((1369954-26253)/1369954*100, 2),
-                   round((1197638-37921)/1197638*100, 2), round((1177443-12253)/1177443*100, 2),
-                   round((950881-41506)/950881*100, 2), round((964899-18394)/964899*100, 2),
-                   round((564805-10491)/564805*100, 2), round((589218-18874)/589218*100, 2), 
-                   round((1300495-8963)/1300495*100, 2)))
-
-#pdf("figures/lung_eqtl_map/lung_map_eqtls_vs_non-eqtls_per_chromosome.pdf", width = 10, height = 9)
-ggplot(lung.map, aes(x = factor(chr, level=c("chr1", "chr2", "chr3", "chr4", "chr5", "chr6", "chr7", "chr8", "chr9", "chr10", "chr11", "chr12", "chr13", "chr14", "chr15", "chr16", "chr17", "chr18", "chr19", "chr20", "chr21","chr22", "chrX")), y = percentage, fill = snps)) +
-    geom_bar(stat="identity", position = "fill") + 
-  scale_y_continuous(labels = scales::percent_format()) +
-    scale_fill_manual(values=c("#009444", "grey")) +
-    theme_classic() +
-    theme(plot.title = element_blank(),
-          axis.title.x = element_blank(),
-          legend.text=element_text(size=20),
-          legend.title=element_blank(),
-          legend.position = "bottom",
-          #legend.direction = "horizontal",
-          axis.text.y=element_text(size=20, colour = "black"),
-          axis.text.x=element_text(angle = 45, size=16, colour = "black", vjust=0.45),
-          axis.title=element_text(size=24, colour = "black"),
-          strip.text.x = element_text(size = 16, colour = "black")) +
-    labs(y = "Percentage")
 #dev.off()
 ```
 
@@ -143,128 +80,12 @@ ggplot(lung.map.genes, aes(x = "", y = percentage, fill = genes)) +
 #dev.off()
 ```
 
-## 1.3. [OPTIONAL] Percentage of eQTL SNPs spatially controlling one or many eGenes.
-
-```{r lung_map_one2one_vs_one2many}
-### Getting numbers per chromosome
-lung.map_one2one_vs_one2many <- data.frame(
-    chr = rep(c("chr1", "chr2", "chr3", "chr4", "chr5", "chr6", "chr7", "chr8", "chr9", "chr10", "chr11",
-            "chr12", "chr13", "chr14", "chr15", "chr16", "chr17", "chr18", "chr19", "chr20", "chr21",
-            "chr22", "chrX"), each=1),
-    one2many = rep(c("One-to-one","One-to-many"), each=23),
-    number = c(59763, 47191, 39217, 33628, 35734, 44461, 34285, 23795, 25394, 30983, 29105, 31019, 14782,
-               21786, 22216, 19689, 27766, 11289, 32398, 15205, 8662, 13900, 8131,
-               (68691-59763), (53606-47191), (44440-39217), (37347-33628), (40217-35734), 
-               (52470-44461), (38671-34285), (27013-23795), (29119-25394), (34254-30983),
-               (34484-29105), (36661-31019), (16228-14782), (25223-21786), (26972-22216),
-               (26253-19689), (37921-27766), (12253-11289), (41506-32398), (18394-15205),
-               (10491-8662), (18874-13900), (8963-8131)),
-    percentage = c(round(59763/68691*100, 2), round(47191/53606*100, 2), round(39217/44440*100, 2), 
-                   round(33628/37347*100, 2), round(35734/40217*100, 2), round(44461/52470*100, 2), 
-                   round(34285/38671*100, 2), round(23795/27013*100, 2), round(25394/29119*100, 2), 
-                   round(30983/34254*100, 2), round(29105/34484*100, 2), round(31019/36661*100, 2), 
-                   round(14782/16228*100, 2), round(21786/25223*100, 2), round(22216/26972*100, 2), 
-                   round(19689/26253*100, 2), round(27766/37921*100, 2), round(11289/12253*100, 2), 
-                   round(32398/41506*100, 2), round(15205/18394*100, 2), round(8662/10491*100, 2), 
-                   round(13900/18874*100, 2), round(8131/8963*100, 2),
-                   round((68691-59763)/68691*100, 2), round((53606-47191)/53606*100, 2), 
-                   round((44440-39217)/44440*100, 2), round((37347-33628)/37347*100, 2), 
-                   round((40217-35734)/40217*100, 2), round((52470-44461)/52470*100, 2), 
-                   round((38671-34285)/38671*100, 2), round((27013-23795)/27013*100, 2),
-                   round((29119-25394)/29119*100, 2), round((34254-30983)/34254*100, 2), 
-                   round((34484-29105)/34484*100, 2), round((36661-31019)/36661*100, 2),
-                   round((16228-14782)/16228*100, 2), round((25223-21786)/25223*100, 2),
-                   round((26972-22216)/26972*100, 2), round((26253-19689)/26253*100, 2),
-                   round((37921-27766)/37921*100, 2), round((12253-11289)/12253*100, 2), 
-                   round((41506-32398)/41506*100, 2), round((18394-15205)/18394*100, 2),
-                   round((10491-8662)/10491*100, 2), round((18874-13900)/18874*100, 2),
-                   round((8963-8131)/8963*100, 2)))
-
-#pdf("figures/lung_eqtl_map/lung_map_one2one_vs_one2many_per_chromosome.pdf", width = 10, height = 9)
-ggplot(lung.map_one2one_vs_one2many, aes(x = factor(chr, level=c("chr1", "chr2", "chr3", "chr4", "chr5", "chr6", "chr7", "chr8", "chr9", "chr10", "chr11", "chr12", "chr13", "chr14", "chr15", "chr16", "chr17", "chr18", "chr19", "chr20", "chr21","chr22", "chrX")), y = percentage, fill = one2many)) +
-    geom_bar(stat="identity", position = "fill") + 
-  scale_y_continuous(labels = scales::percent_format()) +
-    scale_fill_manual(values=c("#009444", "darkgrey")) +
-    theme_classic() +
-    theme(plot.title = element_blank(),
-          axis.title.x = element_blank(),
-          legend.text=element_text(size=20),
-          legend.title=element_blank(),
-          legend.position = "bottom",
-          #legend.direction = "horizontal",
-          axis.text.y=element_text(size=20, colour = "black"),
-          axis.text.x=element_text(angle = 45, size=16, colour = "black", vjust=0.45),
-          axis.title=element_text(size=24, colour = "black"),
-          strip.text.x = element_text(size = 16, colour = "black")) +
-    labs(y = "Percentage")
-#dev.off()
-```
-
-## 1.4. [OPTIONAL] Percentage of spatial cis-, trans-intrachromosomal and trans-interchromosomal eQTL-eGene interactions in lung-specific regulatory map.
-
-```{r lung_map_cis_vs_trans}
-### Getting numbers per chromosome
-lung.map_interactions <- data.frame(
-    chr = rep(c("chr1", "chr2", "chr3", "chr4", "chr5", "chr6", "chr7", "chr8", "chr9", "chr10", "chr11",
-            "chr12", "chr13", "chr14", "chr15", "chr16", "chr17", "chr18", "chr19", "chr20", "chr21",
-            "chr22", "chrX"), each=1),
-    interactions = rep(c("Cis","Trans-intra", "Trans-inter"), each=23),
-    number = c(76664, 59482, 49165, 40495, 43957, 60775, 42544, 29961, 32562, 36805, 40165, 42573, 17112, 
-               28696, 31795, 33930, 50012, 12956, 51701, 21926, 12462, 24735, 9620, 
-               1552, 1249, 1297, 836, 881, 1286, 932, 728, 597, 687, 931, 685, 519, 489, 654, 468, 673, 
-               286, 722, 302, 141, 298, 201,
-               481, 356, 269, 332, 291, 467, 292, 281, 269, 297, 231, 360, 176, 273, 231, 334, 417, 94, 
-               423, 215, 179, 272, 86),
-    percentage = c(round(76664/78698*100, 2), round(59482/61088*100, 2), round(49165/50732*100, 2),
-                   round(40495/41664*100, 2), round(43957/45130*100, 2), round(60775/62529*100, 2), 
-                   round(42544/43769*100, 2), round(29961/30971*100, 2), round(32562/33429*100, 2), 
-                   round(36805/37790*100, 2), round(40165/41328*100, 2), round(42573/43619*100, 2), 
-                   round(17112/17808*100, 2), round(28696/29459*100, 2), round(31795/32681*100, 2), 
-                   round(33930/34733*100, 2), round(50012/51103*100, 2), round(12956/13337*100, 2), 
-                   round(51701/52847*100, 2), round(21926/22444*100, 2), round(12462/12783*100, 2), 
-                   round(24735/25306*100, 2), round(9620/9908*100, 2), 
-                   round(1552/78698*100, 2), round(1249/61088*100, 2), round(1297/50732*100, 2), 
-                   round(836/41664*100, 2), round(881/45130*100, 2), round(1286/62529*100, 2), 
-                   round(932/43769*100, 2), round(728/30971*100, 2), round(597/33429*100, 2), 
-                   round(687/37790*100, 2), round(931/41328*100, 2), round(685/43619*100, 2), 
-                   round(519/17808*100, 2), round(489/29459*100, 2), round(654/32681*100, 2), 
-                   round(468/34733*100, 2), round(673/51103*100, 2), round(286/13337*100, 2), 
-                   round(722/52847*100, 2), round(302/22444*100, 2), round(141/12783*100, 2), 
-                   round(298/25306*100, 2), round(201/9908*100, 2), 
-                   round(481/78698*100, 2), round(356/61088*100, 2), round(269/50732*100, 2), 
-                   round(332/41664*100, 2), round(291/45130*100, 2), round(467/62529*100, 2), 
-                   round(292/43769*100, 2), round(281/30971*100, 2), round(269/33429*100, 2), 
-                   round(297/37790*100, 2), round(231/41328*100, 2), round(360/43619*100, 2), 
-                   round(176/17808*100, 2), round(273/29459*100, 2), round(231/32681*100, 2), 
-                   round(334/34733*100, 2), round(417/51103*100, 2), round(94/13337*100, 2), 
-                   round(423/52847*100, 2), round(215/22444*100, 2), round(179/12783*100, 2), 
-                   round(272/25306*100, 2), round(86/9908*100, 2)))
-
-#pdf("figures/lung_eqtl_map/lung_map_cis_vs_trans_per_chromosome.pdf", width = 14, height = 9)
-ggplot(lung.map_interactions, aes(x = factor(chr, level=c("chr1", "chr2", "chr3", "chr4", "chr5", "chr6", "chr7", "chr8", "chr9", "chr10", "chr11", "chr12", "chr13", "chr14", "chr15", "chr16", "chr17", "chr18", "chr19", "chr20", "chr21","chr22", "chrX")), y = percentage, fill = interactions)) +
-    geom_bar(stat="identity", position = "fill") + 
-  scale_y_continuous(labels = scales::percent_format()) +
-    scale_fill_manual(values=c("lightgrey", "darkgrey", "black")) +
-    theme_classic() +
-    theme(plot.title = element_blank(),
-          axis.title.x = element_blank(),
-          legend.text=element_text(size=20),
-          legend.title=element_blank(),
-          legend.position = "bottom",
-          #legend.direction = "horizontal",
-          axis.text.y=element_text(size=20, colour = "black"),
-          axis.text.x=element_text(angle = 45, size=16, colour = "black", vjust=0.45),
-          axis.title=element_text(size=24, colour = "black"),
-          strip.text.x = element_text(size = 16, colour = "black")) +
-    labs(y = "Percentage")
-#dev.off()
-```
-
-## 1.5. Mean, median, and standard deviation of number of eQTLs per gene grouped by interaction type.
+## 1.3. Mean, median, and standard deviation of number of eQTLs per gene grouped by interaction type.
 
 ```{r lung_eqtls_per_gene_by_interaction_type}
 ### reading lung-specific GRN
-lung_map <- vroom(file="./results/lung_specific_GRN/lung_grn_significant_eqtls.txt", delim="\t")
+lung_map <- vroom(file="./results/lung_specific_GRN/lung_grn_significant_eqtls.txt.gz",
+                  delim="\t")
 
 lung_map.df <- distinct(lung_map[,c("snp", "gene", "interaction_type")])
 lung_map_cis <- subset(lung_map.df, interaction_type=='Cis') # 840,170 
@@ -277,17 +98,19 @@ lung_map_inter <- subset(lung_map.df, interaction_type=='Trans-interchromosomal'
 #length(unique(lung_map_inter$snp)) # 6,385 eQTL SNPs
 #length(unique(lung_map_inter$gene)) # 2,003 eGenes
 
-lung_map_cis.freq <- count(distinct(lung_map_cis[,c("snp", "gene")]), gene) %>% 
-  mutate("interaction_type"="Cis")
-lung_map_intra.freq <- count(distinct(lung_map_intra[,c("snp", "gene")]), gene) %>% 
-  mutate("interaction_type"="Trans-intrachromosomal")
-lung_map_inter.freq <- count(distinct(lung_map_inter[,c("snp", "gene")]), gene) %>% 
-  mutate("interaction_type"="Trans-interchromosomal")
+lung_map_cis.freq <- count(distinct(lung_map_cis[,c("snp", "gene")]), gene) %>%
+    mutate("interaction_type"="Cis")
+lung_map_intra.freq <- count(distinct(lung_map_intra[,c("snp", "gene")]), gene) %>%
+    mutate("interaction_type"="Trans-intrachromosomal")
+lung_map_inter.freq <- count(distinct(lung_map_inter[,c("snp", "gene")]), gene) %>%
+    mutate("interaction_type"="Trans-interchromosomal")
 
 lung_map_combined <- rbind(lung_map_cis.freq, lung_map_intra.freq, lung_map_inter.freq)
 lung_map_combined <- lung_map_combined %>% 
-  mutate(interaction_type=factor(interaction_type, 
-                                 levels=c("Cis", "Trans-intrachromosomal","Trans-interchromosomal")))
+    mutate(interaction_type=factor(interaction_type, 
+                                   levels=c("Cis",
+                                            "Trans-intrachromosomal",
+                                            "Trans-interchromosomal")))
 
 # computing mean
 lung_map_combined %>% group_by(interaction_type) %>% summarise(mean = mean(log10(n)))
@@ -303,37 +126,36 @@ eqtls_per_gene <- list(c("Cis", "Trans-intrachromosomal"),
 #pdf("figures/lung_eqtl_map/violin_eqtls_per_gene.pdf", width = 12, height = 8)
 violin_eqtls_per_gene <- ggplot(lung_map_combined,
                                 aes(x=interaction_type, y=log10(n), fill=interaction_type)) +
-  geom_violin(trim=T) + 
-  stat_summary(fun = "median", geom = "point", shape = 3, size = 4, color = "white") +
-  stat_summary(fun.data=mean_sdl, fun.args = list(mult = 1), 
-               geom="pointrange", color="red", shape=3, size=0.85) + 
-  scale_x_discrete("Interaction type") +
-  scale_y_continuous("log10(Number of eQTL SNPs)", expand = c(0,0)) +
-  #scale_fill_manual(values=c("lightgrey", "grey", "darkgrey")) +
-  scale_fill_manual(values=c("#009444", "#009444", "#009444")) +
-  theme_classic() +
-  theme(plot.title = element_blank(),
-        axis.title.x = element_blank(),
-        legend.text=element_text(size=20),
-        legend.title=element_blank(),
-        legend.position = "none",
-        #legend.direction = "horizontal",
-        axis.text=element_text(size=22, colour = "black"),
-        axis.title=element_text(size=24, colour = "black"),
-        strip.text.x = element_text(size = 19, colour = "black")) + 
-  #theme(axis.text.x= element_text(size=12)) +
-  stat_compare_means(comparisons = eqtls_per_gene, method = "t.test", label = "p.signif")
+    geom_violin(trim=T) + 
+    stat_summary(fun = "median", geom = "point", shape = 3, size = 4, color = "white") +
+    stat_summary(fun.data=mean_sdl, fun.args = list(mult = 1), 
+                 geom="pointrange", color="red", shape=3, size=0.85) +
+    scale_x_discrete("Interaction type") +
+    scale_y_continuous("log10(Number of eQTL SNPs)", expand = c(0,0)) +
+    #scale_fill_manual(values=c("lightgrey", "grey", "darkgrey")) +
+    scale_fill_manual(values=c("#009444", "#009444", "#009444")) +
+    theme_classic() +
+    theme(plot.title = element_blank(),
+          axis.title.x = element_blank(),
+          legend.text=element_text(size=20),
+          legend.title=element_blank(),
+          legend.position = "none",
+          #legend.direction = "horizontal",
+          axis.text=element_text(size=22, colour = "black"),
+          axis.title=element_text(size=24, colour = "black"),
+          strip.text.x = element_text(size = 19, colour = "black")) + 
+    #theme(axis.text.x= element_text(size=12)) +
+    stat_compare_means(comparisons = eqtls_per_gene, method = "t.test", label = "p.signif")
 violin_eqtls_per_gene
 #dev.off()
 ```
 
-## 1.6. Mean, median, and standard deviation of eQTLs per gene expression grouped by interaction type.
+## 1.4. Mean, median, and standard deviation of eQTLs per gene expression grouped by interaction type.
 
 ```{r lung_eqtls_per_gene_expression_by_interaction_type}
 ### reading GTEx lung v8
-lung_tpm <- vroom(file=gzfile("./data/GTEx_Analysis_2017-06-05_v8_RNASeQCv1.1.9_gene_median_tpm.gct.gz"),
-                  delim = "\t", skip=2, col_select = c("Description", "Lung", "Name")) %>%
-  rename("gencode_id"= Name)
+lung_tpm <- vroom(file=gzfile("./data/GTEx_Analysis_2017-06-05_v8_RNASeQCv1.1.9_gene_median_tpm.gct.gz"), delim = "\t", skip=2, col_select = c("Description", "Lung", "Name"))
+lung_tpm <- lung_tpm %>% rename("gencode_id"= Name)
 
 lung_map <- vroom(file="./results/lung_specific_GRN/lung_grn_significant_eqtls.txt", delim="\t")
 lung_map.df <- distinct(lung_map[,c("snp", "gencode_id", "interaction_type")])
