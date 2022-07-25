@@ -10,10 +10,10 @@ knitr::opts_chunk$set(echo = TRUE, message=FALSE)
 
 # install.packages("pacman")
 # load libraries
-pacman::p_load(ggplot2, pander, dplyr, tidyr, ggrepel, tidyverse, reshape2, RColorBrewer, gprofiler2,
-               clusterProfiler, circlize, ComplexHeatmap, igraph, viridis, plotly, venneuler, eulerr,
-               Rcpp, colorspace, EnsDb.Hsapiens.v86, scales, ggpubr, ggrepel, vroom, ggforce,
-               cowplot, pheatmap, readxl)
+pacman::p_load(ggplot2, pander, dplyr, tidyr, ggrepel, tidyverse, reshape2, RColorBrewer,
+               gprofiler2, clusterProfiler, circlize, ComplexHeatmap, igraph, viridis, plotly,
+               venneuler, eulerr, Rcpp, colorspace, EnsDb.Hsapiens.v86, scales, ggpubr, ggrepel,
+               vroom, ggforce, cowplot, pheatmap, readxl)
 
 # colors: lung - #009444
 ```
@@ -27,15 +27,17 @@ Python (version 3.6.9), R (version 4.0.2) and RStudio (version 1.2.5033) were us
 3. Human genome build hg38 release 75 (GRCh38) (Homo_sapiens_assembly38_noALT_noHLA_noDecoy.fasta) was downloaded from [gs://gtex-resources](https://console.cloud.google.com/storage/browser/gtex-resources/references).
 4. SNP genomic positions for genome GRCh38p7 build 151 were obtained from ftp://ftp.ncbi.nih.gov/snp/organisms/human_9606_b151_GRCh38p7.  
 5. Gene annotation for GENCODE v26 (gencode.v26.GRCh38.genes.gtf) was downloaded from [gs://gtex-resources](https://console.cloud.google.com/storage/browser/gtex-resources/references).  
-6. SNPs associated with COPD were downloaded from the [GWAS Catalog](www.ebi.ac.uk/gwas/) on 09/06/2021.  
-7. [GWAS Catalog](https://www.ebi.ac.uk/gwas/docs/file-downloads) was downloaded on ??? and queried for SNP-trait associations on 22/11/2021.  
-8. [STRING PPI database](https://string-db.org/) (version 11.0) was queried on 22/11/2021.
+6. SNPs associated with COPD were downloaded from the [GWAS Catalog](www.ebi.ac.uk/gwas/) on 09/06/2021.
+7. SNPs associated with CAD were downloaded from the [GWAS Catalog](www.ebi.ac.uk/gwas/) on 11/04/2022.
+8. SNPs associated with UD were downloaded from the [GWAS Catalog](www.ebi.ac.uk/gwas/) on 11/04/2022.
+9. [GWAS Catalog](https://www.ebi.ac.uk/gwas/docs/file-downloads) was downloaded on ??? and queried for SNP-trait associations on 22/11/2021.  
+10. [STRING PPI database](https://string-db.org/) (version 11.0) was queried on 22/11/2021.
 
 
-### 1. Identification of significant spatial and non-spatial eQTL SNP-gene interactions using CoDeS3D.
+### 1. Identification of significant spatial eQTL SNP-gene interactions using CoDeS3D.
 
-First, we run CoDeS3D pipeline to get spatial regulatory interactions across lung tissue (using GTEx lung eQTL data and Hi-C libraries for primary lung cells): `python codes3d/codes3d.py -s data/snps/263_COPD_snps_5E-8.txt -o results/codes3d/lung -n Lung_cells_Schmitt2016 -t Lung`.
-To identify non-spatial regulatory interaction across lung tissue (using GTEx lung eQTL data), we run CoDeS3D pipeline as follows: `python codes3d/codes3d.py -s data/snps/263_COPD_snps_5E-8.txt -o results/codes3d/non-spatial_lung -t Lung --non-spatial`.
+First, we run CoDeS3D pipeline to get COPD-associated spatial regulatory interactions across lung tissue (using GTEx lung eQTL data and Hi-C libraries for primary lung cells): `python codes3d/codes3d.py -s data/snps/263_COPD_snps_5E-8.txt -o results/codes3d/lung -n Lung_cells_Schmitt2016 -t Lung`.
+To identify spatial regulatory interactions across lung tissue (using GTEx lung eQTL data), we run CoDeS3D pipeline as follows: `python codes3d/codes3d.py -s data/snps/263_COPD_snps_5E-8.txt -o results/codes3d/non-spatial_lung -t Lung --non-spatial`.
 
 [TODO: add CoDeS3D runs for CAD and UD]
 
