@@ -30,7 +30,7 @@ Python (version 3.6.9), R (version 4.0.2) and RStudio (version 1.2.5033) were us
 6. SNPs associated with COPD were downloaded from the [GWAS Catalog](www.ebi.ac.uk/gwas/) on 09/06/2021.
 7. SNPs associated with CAD were downloaded from the [GWAS Catalog](www.ebi.ac.uk/gwas/) on 11/04/2022.
 8. SNPs associated with UD were downloaded from the [GWAS Catalog](www.ebi.ac.uk/gwas/) on 11/04/2022.
-9. [GWAS Catalog](https://www.ebi.ac.uk/gwas/docs/file-downloads) was downloaded on ??? and queried for SNP-trait associations on 22/11/2021.  
+9. [GWAS Catalog](https://www.ebi.ac.uk/gwas/docs/file-downloads) was queried for SNP-trait associations on 22/11/2021.  
 10. [STRING PPI database](https://string-db.org/) (version 11.0) was queried on 22/11/2021.
 
 
