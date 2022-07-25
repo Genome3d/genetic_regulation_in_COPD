@@ -1,5 +1,5 @@
 ---
-title: "Genetic regulation in COPD"
+title: "Genetic regulation in Chronic obstructive pulmonary disease (COPD)"
 author: "Evgeniia Golovina"
 date: "26/05/2021"
 output: html_document
@@ -10,22 +10,1575 @@ knitr::opts_chunk$set(echo = TRUE, message=FALSE)
 
 # install.packages("pacman")
 # load libraries
-pacman::p_load(ggplot2, pander, dplyr, tidyr, reshape2, RColorBrewer, gprofiler2)
+pacman::p_load(ggplot2, pander, dplyr, tidyr, ggrepel, tidyverse, reshape2, RColorBrewer, gprofiler2,
+               clusterProfiler, circlize, ComplexHeatmap, igraph, viridis, plotly, venneuler, eulerr,
+               Rcpp, colorspace, EnsDb.Hsapiens.v86, scales, ggpubr, ggrepel, vroom, ggforce,
+               cowplot, pheatmap, readxl)
+
+# colors: lung - #009444
 ```
 
-This is a reproducibility report for "COPD" study. 
+This is a reproducibility report for "Chronic obstructive pulmonary disease (COPD)" study. 
 
-Python (version 3.6.9), R (version 4.0.2) and RStudio (version 1.2.5033) were used for data processing, analysis and visualisation.  
+Python (version 3.6.9), R (version 4.0.2) and RStudio (version 1.2.5033) were used for data processing, analysis and visualisation.
+
+1. Hi-C datasets for primary lung cells are available on [GEO](https://www.ncbi.nlm.nih.gov/geo/) (accession numbers: GSM2322544, GSM2322545).
+2. Total RNA-seq and WGS datasets across GTEx v8 lung tissue are available via the [dbGaP](https://www.ncbi.nlm.nih.gov/gap/) (accession: phs000424.v8.p2).  
+3. Human genome build hg38 release 75 (GRCh38) (Homo_sapiens_assembly38_noALT_noHLA_noDecoy.fasta) was downloaded from [gs://gtex-resources](https://console.cloud.google.com/storage/browser/gtex-resources/references).
+4. SNP genomic positions for genome GRCh38p7 build 151 were obtained from ftp://ftp.ncbi.nih.gov/snp/organisms/human_9606_b151_GRCh38p7.  
+5. Gene annotation for GENCODE v26 (gencode.v26.GRCh38.genes.gtf) was downloaded from [gs://gtex-resources](https://console.cloud.google.com/storage/browser/gtex-resources/references).  
+6. SNPs associated with COPD were downloaded from the [GWAS Catalog](www.ebi.ac.uk/gwas/) on 09/06/2021.  
+7. [GWAS Catalog](https://www.ebi.ac.uk/gwas/docs/file-downloads) was downloaded on ??? and queried for SNP-trait associations on 22/11/2021.  
+8. [STRING PPI database](https://string-db.org/) (version 11.0) was queried on 22/11/2021.
 
 
-### 1. Identification of significant spatial eQTL SNP-gene interactions using CoDeS3D.
+### 1. Identification of significant spatial and non-spatial eQTL SNP-gene interactions using CoDeS3D.
 
-First, we run CoDeS3D pipeline to get regulatory interactions across fetal cortical tissue: `python codes3d/codes3d.py -s data/snps/264_COPD_snps_5E-8.txt -o results/codes3d/adult_lung -n Lung_cells_Schmitt2016 -t Lung`.
+First, we run CoDeS3D pipeline to get spatial regulatory interactions across lung tissue (using GTEx lung eQTL data and Hi-C libraries for primary lung cells): `python codes3d/codes3d.py -s data/snps/263_COPD_snps_5E-8.txt -o results/codes3d/lung -n Lung_cells_Schmitt2016 -t Lung`.
+To identify non-spatial regulatory interaction across lung tissue (using GTEx lung eQTL data), we run CoDeS3D pipeline as follows: `python codes3d/codes3d.py -s data/snps/263_COPD_snps_5E-8.txt -o results/codes3d/non-spatial_lung -t Lung --non-spatial`.
 
-```{r loading_codes3d_results}
+[TODO: add CoDeS3D runs for CAD and UD]
 
+### 1. Construction of the entire lung-specific gene regulatory map (GRN).
+
+## 1.1. Percentage of spatial lung-specific eQTL SNPs and non-eQTL SNPs among all variants (genotyped from lung samples obtained from GTEx v8).
+
+```{r lung_map_eqtls_vs_noneqtls}
+### Getting number of SNPs vs eQTLs in lung across the entire genome
+lung.map.genome <- data.frame(
+  snps = rep(c("eQTL","non-eQTL")),
+  number = c((68691+53606+44440+37347+40217+52470+38671+27013+29119+34254+34484+36661+16228+25223+26972+26253+37921+12253+41506+18394+10491+18874+8963), 
+             ((3334642-68691)+(3567151-53606)+(2998105-44440)+(2959792-37347)+(2720716-40217)+(2630808-52470)+(2463152-38671)+(2338798-27013)+(1845712-29119)+(2087550-34254)+(2069637-34484)+(1980922-36661)+(1482503-16228)+(1351182-25223)+(1228094-26972)+(1369954-26253)+(1197638-37921)+(1177443-12253)+(950881-41506)+(964899-18394)+(564805-10491)+(589218-18874)+(1300495-8963))),
+  percentage = c(round(((68691+53606+44440+37347+40217+52470+38671+27013+29119+34254+34484+36661+16228+25223+26972+26253+37921+12253+41506+18394+10491+18874+8963)/(3334642+3567151+2998105+2959792+2720716+2630808+2463152+2338798+1845712+2087550+2069637+1980922+1482503+1351182+1228094+1369954+1197638+1177443+950881+964899+564805+589218+1300495))*100, 2),
+                 round((((3334642-68691)+(3567151-53606)+(2998105-44440)+(2959792-37347)+(2720716-40217)+(2630808-52470)+(2463152-38671)+(2338798-27013)+(1845712-29119)+(2087550-34254)+(2069637-34484)+(1980922-36661)+(1482503-16228)+(1351182-25223)+(1228094-26972)+(1369954-26253)+(1197638-37921)+(1177443-12253)+(950881-41506)+(964899-18394)+(564805-10491)+(589218-18874)+(1300495-8963))/(3334642+3567151+2998105+2959792+2720716+2630808+2463152+2338798+1845712+2087550+2069637+1980922+1482503+1351182+1228094+1369954+1197638+1177443+950881+964899+564805+589218+1300495))*100, 2)))
+
+lung.map.genome <- data.frame(
+  snps = rep(c("eQTL","non-eQTL")),
+  number = c(740028, (43174097-740028)),
+  percentage = c(round((740028/43174097)*100, 2),
+                 round(((43174097-740028)/43174097)*100, 2)))
+
+#pdf("figures/lung_eqtl_map/lung_map_eqtls_vs_non-eqtls_genomewide.pdf", width = 9, height = 9)
+ggplot(lung.map.genome, aes(x = "", y = percentage, fill = snps)) +
+  geom_bar(width = 1, stat = "identity", fill = c("#009444", "darkgrey"), color = "white") +
+  coord_polar("y", start = 0)+
+  #geom_text(aes(y = percentage, label = snps), color = "white")+
+  #scale_fill_manual(values = mycols) +
+  theme_void()
+#dev.off()
+
+### Getting number of SNPs vs eQTLs in lung per chromosome
+lung.map <- data.frame(
+    chr = rep(c("chr1", "chr2", "chr3", "chr4", "chr5", "chr6", "chr7", "chr8", "chr9", "chr10", "chr11",
+            "chr12", "chr13", "chr14", "chr15", "chr16", "chr17", "chr18", "chr19", "chr20", "chr21",
+            "chr22", "chrX"), each=1),
+    snps = rep(c("eQTL","non-eQTL"), each=23),
+    number = c(68691, 53606, 44440, 37347, 40217, 52470, 38671, 27013, 29119, 34254, 34484, 36661, 16228,
+               25223, 26972, 26253, 37921, 12253, 41506, 18394, 10491, 18874, 8963,
+               (3334642-68691), (3567151-53606), (2998105-44440), (2959792-37347), (2720716-40217), 
+               (2630808-52470), (2463152-38671), (2338798-27013), (1845712-29119), (2087550-34254),
+               (2069637-34484), (1980922-36661), (1482503-16228), (1351182-25223), (1228094-26972),
+               (1369954-26253), (1197638-37921), (1177443-12253), (950881-41506), (964899-18394),
+               (564805-10491), (589218-18874), (1300495-8963)),
+    percentage = c(round(68691/3334642*100, 2), round(53606/3567151*100, 2), round(44440/2998105*100, 2),
+                   round(37347/2959792*100, 2), round(40217/2720716*100, 2), round(52470/2630808*100, 2),
+                   round(38671/2463152*100, 2), round(27013/2338798*100, 2), round(29119/1845712*100, 2),
+                   round(34254/2087550*100, 2), round(34484/2069637*100, 2), round(36661/1980922*100, 2),
+                   round(16228/1482503*100, 2), round(25223/1351182*100, 2), round(26972/1228094*100, 2),
+                   round(26253/1369954*100, 2), round(37921/1197638*100, 2), round(12253/1177443*100, 2),
+                   round(41506/950881*100, 2), round(18394/964899*100, 2), round(10491/564805*100, 2),
+                   round(18874/589218*100, 2), round(8963/1300495*100, 2),
+                   round((3334642-68691)/3334642*100, 2), round((3567151-53606)/3567151*100, 2),
+                   round((2998105-44440)/2998105*100, 2), round((2959792-37347)/2959792*100, 2),
+                   round((2720716-40217)/2720716*100, 2), round((2630808-52470)/2630808*100, 2),
+                   round((2463152-38671)/2463152*100, 2), round((2338798-27013)/2338798*100, 2),
+                   round((1845712-29119)/1845712*100, 2), round((2087550-34254)/2087550*100, 2),
+                   round((2069637-34484)/2069637*100, 2), round((1980922-36661)/1980922*100, 2),
+                   round((1482503-16228)/1482503*100, 2), round((1351182-25223)/1351182*100, 2),
+                   round((1228094-26972)/1228094*100, 2), round((1369954-26253)/1369954*100, 2),
+                   round((1197638-37921)/1197638*100, 2), round((1177443-12253)/1177443*100, 2),
+                   round((950881-41506)/950881*100, 2), round((964899-18394)/964899*100, 2),
+                   round((564805-10491)/564805*100, 2), round((589218-18874)/589218*100, 2), 
+                   round((1300495-8963)/1300495*100, 2)))
+
+#pdf("figures/lung_eqtl_map/lung_map_eqtls_vs_non-eqtls_per_chromosome.pdf", width = 10, height = 9)
+ggplot(lung.map, aes(x = factor(chr, level=c("chr1", "chr2", "chr3", "chr4", "chr5", "chr6", "chr7", "chr8", "chr9", "chr10", "chr11", "chr12", "chr13", "chr14", "chr15", "chr16", "chr17", "chr18", "chr19", "chr20", "chr21","chr22", "chrX")), y = percentage, fill = snps)) +
+    geom_bar(stat="identity", position = "fill") + 
+  scale_y_continuous(labels = scales::percent_format()) +
+    scale_fill_manual(values=c("#009444", "grey")) +
+    theme_classic() +
+    theme(plot.title = element_blank(),
+          axis.title.x = element_blank(),
+          legend.text=element_text(size=20),
+          legend.title=element_blank(),
+          legend.position = "bottom",
+          #legend.direction = "horizontal",
+          axis.text.y=element_text(size=20, colour = "black"),
+          axis.text.x=element_text(angle = 45, size=16, colour = "black", vjust=0.45),
+          axis.title=element_text(size=24, colour = "black"),
+          strip.text.x = element_text(size = 16, colour = "black")) +
+    labs(y = "Percentage")
+#dev.off()
+```
+
+## 1.2. Percentage of genes spatially regulated in the lung among all genes from GTEx v8.
+
+```{r lung_map_egenes}
+### Getting number of eGenes
+lung.map.genes <- data.frame(
+  genes = rep(c("eGenes","non-eGenes")),
+  number = c(15855, (56200-15855)),
+  percentage = c(round((15855/56200)*100, 2),
+                 round(((56200-15855)/56200)*100, 2)))
+
+#pdf("figures/lung_eqtl_map/lung_map_egeness_vs_non-egenes_genomewide.pdf", width = 9, height = 9)
+ggplot(lung.map.genes, aes(x = "", y = percentage, fill = genes)) +
+  geom_bar(width = 1, stat = "identity", fill = c("#009444", "darkgrey"), color = "white") +
+  coord_polar("y", start = 0)+
+  #geom_text(aes(y = percentage, label = snps), color = "white")+
+  #scale_fill_manual(values = mycols) +
+  theme_void()
+#dev.off()
+```
+
+## 1.3. [OPTIONAL] Percentage of eQTL SNPs spatially controlling one or many eGenes.
+
+```{r lung_map_one2one_vs_one2many}
+### Getting numbers per chromosome
+lung.map_one2one_vs_one2many <- data.frame(
+    chr = rep(c("chr1", "chr2", "chr3", "chr4", "chr5", "chr6", "chr7", "chr8", "chr9", "chr10", "chr11",
+            "chr12", "chr13", "chr14", "chr15", "chr16", "chr17", "chr18", "chr19", "chr20", "chr21",
+            "chr22", "chrX"), each=1),
+    one2many = rep(c("One-to-one","One-to-many"), each=23),
+    number = c(59763, 47191, 39217, 33628, 35734, 44461, 34285, 23795, 25394, 30983, 29105, 31019, 14782,
+               21786, 22216, 19689, 27766, 11289, 32398, 15205, 8662, 13900, 8131,
+               (68691-59763), (53606-47191), (44440-39217), (37347-33628), (40217-35734), 
+               (52470-44461), (38671-34285), (27013-23795), (29119-25394), (34254-30983),
+               (34484-29105), (36661-31019), (16228-14782), (25223-21786), (26972-22216),
+               (26253-19689), (37921-27766), (12253-11289), (41506-32398), (18394-15205),
+               (10491-8662), (18874-13900), (8963-8131)),
+    percentage = c(round(59763/68691*100, 2), round(47191/53606*100, 2), round(39217/44440*100, 2), 
+                   round(33628/37347*100, 2), round(35734/40217*100, 2), round(44461/52470*100, 2), 
+                   round(34285/38671*100, 2), round(23795/27013*100, 2), round(25394/29119*100, 2), 
+                   round(30983/34254*100, 2), round(29105/34484*100, 2), round(31019/36661*100, 2), 
+                   round(14782/16228*100, 2), round(21786/25223*100, 2), round(22216/26972*100, 2), 
+                   round(19689/26253*100, 2), round(27766/37921*100, 2), round(11289/12253*100, 2), 
+                   round(32398/41506*100, 2), round(15205/18394*100, 2), round(8662/10491*100, 2), 
+                   round(13900/18874*100, 2), round(8131/8963*100, 2),
+                   round((68691-59763)/68691*100, 2), round((53606-47191)/53606*100, 2), 
+                   round((44440-39217)/44440*100, 2), round((37347-33628)/37347*100, 2), 
+                   round((40217-35734)/40217*100, 2), round((52470-44461)/52470*100, 2), 
+                   round((38671-34285)/38671*100, 2), round((27013-23795)/27013*100, 2),
+                   round((29119-25394)/29119*100, 2), round((34254-30983)/34254*100, 2), 
+                   round((34484-29105)/34484*100, 2), round((36661-31019)/36661*100, 2),
+                   round((16228-14782)/16228*100, 2), round((25223-21786)/25223*100, 2),
+                   round((26972-22216)/26972*100, 2), round((26253-19689)/26253*100, 2),
+                   round((37921-27766)/37921*100, 2), round((12253-11289)/12253*100, 2), 
+                   round((41506-32398)/41506*100, 2), round((18394-15205)/18394*100, 2),
+                   round((10491-8662)/10491*100, 2), round((18874-13900)/18874*100, 2),
+                   round((8963-8131)/8963*100, 2)))
+
+#pdf("figures/lung_eqtl_map/lung_map_one2one_vs_one2many_per_chromosome.pdf", width = 10, height = 9)
+ggplot(lung.map_one2one_vs_one2many, aes(x = factor(chr, level=c("chr1", "chr2", "chr3", "chr4", "chr5", "chr6", "chr7", "chr8", "chr9", "chr10", "chr11", "chr12", "chr13", "chr14", "chr15", "chr16", "chr17", "chr18", "chr19", "chr20", "chr21","chr22", "chrX")), y = percentage, fill = one2many)) +
+    geom_bar(stat="identity", position = "fill") + 
+  scale_y_continuous(labels = scales::percent_format()) +
+    scale_fill_manual(values=c("#009444", "darkgrey")) +
+    theme_classic() +
+    theme(plot.title = element_blank(),
+          axis.title.x = element_blank(),
+          legend.text=element_text(size=20),
+          legend.title=element_blank(),
+          legend.position = "bottom",
+          #legend.direction = "horizontal",
+          axis.text.y=element_text(size=20, colour = "black"),
+          axis.text.x=element_text(angle = 45, size=16, colour = "black", vjust=0.45),
+          axis.title=element_text(size=24, colour = "black"),
+          strip.text.x = element_text(size = 16, colour = "black")) +
+    labs(y = "Percentage")
+#dev.off()
+```
+
+## 1.4. [OPTIONAL] Percentage of spatial cis-, trans-intrachromosomal and trans-interchromosomal eQTL-eGene interactions in lung-specific regulatory map.
+
+```{r lung_map_cis_vs_trans}
+### Getting numbers per chromosome
+lung.map_interactions <- data.frame(
+    chr = rep(c("chr1", "chr2", "chr3", "chr4", "chr5", "chr6", "chr7", "chr8", "chr9", "chr10", "chr11",
+            "chr12", "chr13", "chr14", "chr15", "chr16", "chr17", "chr18", "chr19", "chr20", "chr21",
+            "chr22", "chrX"), each=1),
+    interactions = rep(c("Cis","Trans-intra", "Trans-inter"), each=23),
+    number = c(76664, 59482, 49165, 40495, 43957, 60775, 42544, 29961, 32562, 36805, 40165, 42573, 17112, 
+               28696, 31795, 33930, 50012, 12956, 51701, 21926, 12462, 24735, 9620, 
+               1552, 1249, 1297, 836, 881, 1286, 932, 728, 597, 687, 931, 685, 519, 489, 654, 468, 673, 
+               286, 722, 302, 141, 298, 201,
+               481, 356, 269, 332, 291, 467, 292, 281, 269, 297, 231, 360, 176, 273, 231, 334, 417, 94, 
+               423, 215, 179, 272, 86),
+    percentage = c(round(76664/78698*100, 2), round(59482/61088*100, 2), round(49165/50732*100, 2),
+                   round(40495/41664*100, 2), round(43957/45130*100, 2), round(60775/62529*100, 2), 
+                   round(42544/43769*100, 2), round(29961/30971*100, 2), round(32562/33429*100, 2), 
+                   round(36805/37790*100, 2), round(40165/41328*100, 2), round(42573/43619*100, 2), 
+                   round(17112/17808*100, 2), round(28696/29459*100, 2), round(31795/32681*100, 2), 
+                   round(33930/34733*100, 2), round(50012/51103*100, 2), round(12956/13337*100, 2), 
+                   round(51701/52847*100, 2), round(21926/22444*100, 2), round(12462/12783*100, 2), 
+                   round(24735/25306*100, 2), round(9620/9908*100, 2), 
+                   round(1552/78698*100, 2), round(1249/61088*100, 2), round(1297/50732*100, 2), 
+                   round(836/41664*100, 2), round(881/45130*100, 2), round(1286/62529*100, 2), 
+                   round(932/43769*100, 2), round(728/30971*100, 2), round(597/33429*100, 2), 
+                   round(687/37790*100, 2), round(931/41328*100, 2), round(685/43619*100, 2), 
+                   round(519/17808*100, 2), round(489/29459*100, 2), round(654/32681*100, 2), 
+                   round(468/34733*100, 2), round(673/51103*100, 2), round(286/13337*100, 2), 
+                   round(722/52847*100, 2), round(302/22444*100, 2), round(141/12783*100, 2), 
+                   round(298/25306*100, 2), round(201/9908*100, 2), 
+                   round(481/78698*100, 2), round(356/61088*100, 2), round(269/50732*100, 2), 
+                   round(332/41664*100, 2), round(291/45130*100, 2), round(467/62529*100, 2), 
+                   round(292/43769*100, 2), round(281/30971*100, 2), round(269/33429*100, 2), 
+                   round(297/37790*100, 2), round(231/41328*100, 2), round(360/43619*100, 2), 
+                   round(176/17808*100, 2), round(273/29459*100, 2), round(231/32681*100, 2), 
+                   round(334/34733*100, 2), round(417/51103*100, 2), round(94/13337*100, 2), 
+                   round(423/52847*100, 2), round(215/22444*100, 2), round(179/12783*100, 2), 
+                   round(272/25306*100, 2), round(86/9908*100, 2)))
+
+#pdf("figures/lung_eqtl_map/lung_map_cis_vs_trans_per_chromosome.pdf", width = 14, height = 9)
+ggplot(lung.map_interactions, aes(x = factor(chr, level=c("chr1", "chr2", "chr3", "chr4", "chr5", "chr6", "chr7", "chr8", "chr9", "chr10", "chr11", "chr12", "chr13", "chr14", "chr15", "chr16", "chr17", "chr18", "chr19", "chr20", "chr21","chr22", "chrX")), y = percentage, fill = interactions)) +
+    geom_bar(stat="identity", position = "fill") + 
+  scale_y_continuous(labels = scales::percent_format()) +
+    scale_fill_manual(values=c("lightgrey", "darkgrey", "black")) +
+    theme_classic() +
+    theme(plot.title = element_blank(),
+          axis.title.x = element_blank(),
+          legend.text=element_text(size=20),
+          legend.title=element_blank(),
+          legend.position = "bottom",
+          #legend.direction = "horizontal",
+          axis.text.y=element_text(size=20, colour = "black"),
+          axis.text.x=element_text(angle = 45, size=16, colour = "black", vjust=0.45),
+          axis.title=element_text(size=24, colour = "black"),
+          strip.text.x = element_text(size = 16, colour = "black")) +
+    labs(y = "Percentage")
+#dev.off()
+```
+
+## 1.5. Mean, median, and standard deviation of number of eQTLs per gene grouped by interaction type.
+
+```{r lung_eqtls_per_gene_by_interaction_type}
+### reading lung-specific GRN
+lung_map <- vroom(file="./results/lung_specific_GRN/lung_grn_significant_eqtls.txt", delim="\t")
+
+lung_map.df <- distinct(lung_map[,c("snp", "gene", "interaction_type")])
+lung_map_cis <- subset(lung_map.df, interaction_type=='Cis') # 840,170 
+#length(unique(lung_map_cis$snp)) # 711,397 eQTL SNPs
+#length(unique(lung_map_cis$gene)) # 14,700 eGenes
+lung_map_intra <- subset(lung_map.df, interaction_type=='Trans-intrachromosomal') # 16,213
+#length(unique(lung_map_intra$snp)) # 16,175 eQTL SNPs
+#length(unique(lung_map_intra$gene)) # 2,702 eGenes
+lung_map_inter <- subset(lung_map.df, interaction_type=='Trans-interchromosomal') # 6,540
+#length(unique(lung_map_inter$snp)) # 6,385 eQTL SNPs
+#length(unique(lung_map_inter$gene)) # 2,003 eGenes
+
+lung_map_cis.freq <- count(distinct(lung_map_cis[,c("snp", "gene")]), gene) %>% 
+  mutate("interaction_type"="Cis")
+lung_map_intra.freq <- count(distinct(lung_map_intra[,c("snp", "gene")]), gene) %>% 
+  mutate("interaction_type"="Trans-intrachromosomal")
+lung_map_inter.freq <- count(distinct(lung_map_inter[,c("snp", "gene")]), gene) %>% 
+  mutate("interaction_type"="Trans-interchromosomal")
+
+lung_map_combined <- rbind(lung_map_cis.freq, lung_map_intra.freq, lung_map_inter.freq)
+lung_map_combined <- lung_map_combined %>% 
+  mutate(interaction_type=factor(interaction_type, 
+                                 levels=c("Cis", "Trans-intrachromosomal","Trans-interchromosomal")))
+
+# computing mean
+lung_map_combined %>% group_by(interaction_type) %>% summarise(mean = mean(log10(n)))
+lung_map_combined %>% group_by(interaction_type) %>% summarise(mean = mean(n))
+# computing SD
+lung_map_combined %>% group_by(interaction_type) %>% summarise(sd=sd(log10(n)))
+lung_map_combined %>% group_by(interaction_type) %>% summarise(sd=sd(n))
+# comparing number of eQTLs per gene grouped by interaction type
+eqtls_per_gene <- list(c("Cis", "Trans-intrachromosomal"),
+                       c("Cis", "Trans-interchromosomal"),
+                       c("Trans-interchromosomal", "Trans-intrachromosomal"))
+
+#pdf("figures/lung_eqtl_map/violin_eqtls_per_gene.pdf", width = 12, height = 8)
+violin_eqtls_per_gene <- ggplot(lung_map_combined,
+                                aes(x=interaction_type, y=log10(n), fill=interaction_type)) +
+  geom_violin(trim=T) + 
+  stat_summary(fun = "median", geom = "point", shape = 3, size = 4, color = "white") +
+  stat_summary(fun.data=mean_sdl, fun.args = list(mult = 1), 
+               geom="pointrange", color="red", shape=3, size=0.85) + 
+  scale_x_discrete("Interaction type") +
+  scale_y_continuous("log10(Number of eQTL SNPs)", expand = c(0,0)) +
+  #scale_fill_manual(values=c("lightgrey", "grey", "darkgrey")) +
+  scale_fill_manual(values=c("#009444", "#009444", "#009444")) +
+  theme_classic() +
+  theme(plot.title = element_blank(),
+        axis.title.x = element_blank(),
+        legend.text=element_text(size=20),
+        legend.title=element_blank(),
+        legend.position = "none",
+        #legend.direction = "horizontal",
+        axis.text=element_text(size=22, colour = "black"),
+        axis.title=element_text(size=24, colour = "black"),
+        strip.text.x = element_text(size = 19, colour = "black")) + 
+  #theme(axis.text.x= element_text(size=12)) +
+  stat_compare_means(comparisons = eqtls_per_gene, method = "t.test", label = "p.signif")
+violin_eqtls_per_gene
+#dev.off()
+```
+
+## 1.6. Mean, median, and standard deviation of eQTLs per gene expression grouped by interaction type.
+
+```{r lung_eqtls_per_gene_expression_by_interaction_type}
+### reading GTEx lung v8
+lung_tpm <- vroom(file=gzfile("./data/GTEx_Analysis_2017-06-05_v8_RNASeQCv1.1.9_gene_median_tpm.gct.gz"),
+                  delim = "\t", skip=2, col_select = c("Description", "Lung", "Name")) %>%
+  rename("gencode_id"= Name)
+
+lung_map <- vroom(file="./results/lung_specific_GRN/lung_grn_significant_eqtls.txt", delim="\t")
+lung_map.df <- distinct(lung_map[,c("snp", "gencode_id", "interaction_type")])
+lung_map_cis <- subset(lung_map.df, interaction_type=='Cis')
+lung_map_intra <- subset(lung_map.df, interaction_type=='Trans-intrachromosomal')
+lung_map_inter <- subset(lung_map.df, interaction_type=='Trans-interchromosomal')
+
+lung_map_cis.freq <- count(distinct(lung_map_cis[,c("snp", "gencode_id")]), gencode_id) %>% 
+  mutate("interaction_type"="Cis")
+lung_map_intra.freq <- count(distinct(lung_map_intra[,c("snp", "gencode_id")]), gencode_id) %>% 
+  mutate("interaction_type"="Trans-intrachromosomal")
+lung_map_inter.freq <- count(distinct(lung_map_inter[,c("snp", "gencode_id")]), gencode_id) %>% 
+  mutate("interaction_type"="Trans-interchromosomal")
+
+lung_map_combined <- rbind(lung_map_cis.freq, lung_map_intra.freq, lung_map_inter.freq)
+lung_map_combined <- lung_map_combined %>% 
+  mutate(interaction_type=factor(interaction_type, 
+                                 levels=c("Cis", "Trans-intrachromosomal","Trans-interchromosomal")))
+
+lung_map_combined_tpm <- merge(lung_map_combined, lung_tpm, by= "gencode_id")
+lung_map_combined_tpm.df <- lung_map_combined_tpm %>% 
+  rename("gene"="Description", "tpm"="Lung") %>% 
+  relocate(gene, gencode_id, tpm, interaction_type) %>% 
+  mutate(interaction_type=factor(interaction_type, 
+                                 levels=c("Cis", "Trans-intrachromosomal","Trans-interchromosomal")))
+# computing mean
+lung_map_combined_tpm.df %>% group_by(interaction_type) %>% summarise(mean = mean(log10(tpm+1)))
+lung_map_combined_tpm.df %>% group_by(interaction_type) %>% summarise(mean = mean(tpm))
+# computing SD
+lung_map_combined_tpm.df %>% group_by(interaction_type) %>% summarise(sd=sd(log10(tpm+1)))
+lung_map_combined_tpm.df %>% group_by(interaction_type) %>% summarise(sd=sd(tpm))
+# comparing number of eQTLs per gene grouped by interaction type
+tpm_expression <- list(c("Cis", "Trans-intrachromosomal"),
+                       c("Cis", "Trans-interchromosomal"),
+                       c("Trans-interchromosomal", "Trans-intrachromosomal"))
+
+#pdf("figures/lung_eqtl_map/violin_expression.pdf", width = 12, height = 8)
+violin_expression <- ggplot(lung_map_combined_tpm.df,
+                            aes(x=interaction_type, y=log10(tpm+1), fill=interaction_type)) +
+  geom_violin(trim=T) + 
+  stat_summary(fun = "median", geom = "point", shape = 3, size = 4, color = "white") +
+  stat_summary(fun.data=mean_sdl, fun.args = list(mult = 1), 
+               geom="pointrange", color="red", shape=3, size=0.85) + 
+  scale_x_discrete("Interaction type") +
+  scale_y_continuous("log10(TPM+1)", expand = c(0,0)) +
+  scale_fill_manual(values=c("#009444", "#009444", "#009444")) +
+  theme_classic() +
+  theme(plot.title = element_blank(),
+        axis.title.x = element_blank(),
+        legend.text=element_text(size=20),
+        legend.title=element_blank(),
+        legend.position = "none",
+        #legend.direction = "horizontal",
+        axis.text=element_text(size=22, colour = "black"),
+        axis.title=element_text(size=24, colour = "black"),
+        strip.text.x = element_text(size = 19, colour = "black")) + 
+  #theme(axis.text.x= element_text(size=12)) +
+  stat_compare_means(comparisons = tpm_expression, method = "t.test", label = "p.signif")
+violin_expression
+#dev.off()
+```
+
+## 1.7. Correlation analysis of the number of cis-, trans-intrachromosomal and trans-interchromosomal eQTL-eGene interactions and all variants (genotyped from lung samples obtained from GTEx v8) across different chromosomes in lung-specific regulatory map.
+
+```{r lung_map_correlation_analysis}
+# getting number of SNPs per chromosome
+gtex_snps <- vroom(file=gzfile("./data/GTEx_Analysis_2017-06-05_v8_WholeGenomeSeq_838Indiv_Analysis_Freeze.lookup_table_short_version.txt.gz"), delim ="\t")
+
+#lung_map_chr1 <- read.table(file="./results/lung_specific_GRN/significant_eqtls_chr1.txt", header = TRUE, sep = "\t", quote="", encoding="UTF-8")
+#lung_map <- vroom(file=gzfile("./results/lung_specific_GRN/lung_grn_significant_eqtls.txt.gz"), delim="\t")
+lung_map_chr1 <- vroom(file="./results/lung_specific_GRN/significant_eqtls_chr1.txt", delim="\t", col_select = c(snp, snp_chr))
+lung_map_chr2 <- vroom(file="./results/lung_specific_GRN/significant_eqtls_chr2.txt", delim="\t", col_select = c(snp, snp_chr))
+lung_map_chr3 <- vroom(file="./results/lung_specific_GRN/significant_eqtls_chr3.txt", delim="\t", col_select = c(snp, snp_chr))
+lung_map_chr4 <- vroom(file="./results/lung_specific_GRN/significant_eqtls_chr4.txt", delim="\t", col_select = c(snp, snp_chr))
+lung_map_chr5 <- vroom(file="./results/lung_specific_GRN/significant_eqtls_chr5.txt", delim="\t", col_select = c(snp, snp_chr))
+lung_map_chr6 <- vroom(file="./results/lung_specific_GRN/significant_eqtls_chr6.txt", delim="\t", col_select = c(snp, snp_chr))
+lung_map_chr7 <- vroom(file="./results/lung_specific_GRN/significant_eqtls_chr7.txt", delim="\t", col_select = c(snp, snp_chr))
+lung_map_chr8 <- vroom(file="./results/lung_specific_GRN/significant_eqtls_chr8.txt", delim="\t", col_select = c(snp, snp_chr))
+lung_map_chr9 <- vroom(file="./results/lung_specific_GRN/significant_eqtls_chr9.txt", delim="\t", col_select = c(snp, snp_chr))
+lung_map_chr10 <- vroom(file="./results/lung_specific_GRN/significant_eqtls_chr10.txt", delim="\t", col_select = c(snp, snp_chr))
+lung_map_chr11 <- vroom(file="./results/lung_specific_GRN/significant_eqtls_chr11.txt", delim="\t", col_select = c(snp, snp_chr))
+lung_map_chr12 <- vroom(file="./results/lung_specific_GRN/significant_eqtls_chr12.txt", delim="\t", col_select = c(snp, snp_chr))
+lung_map_chr13 <- vroom(file="./results/lung_specific_GRN/significant_eqtls_chr13.txt", delim="\t", col_select = c(snp, snp_chr))
+lung_map_chr14 <- vroom(file="./results/lung_specific_GRN/significant_eqtls_chr14.txt", delim="\t", col_select = c(snp, snp_chr))
+lung_map_chr15 <- vroom(file="./results/lung_specific_GRN/significant_eqtls_chr15.txt", delim="\t", col_select = c(snp, snp_chr))
+lung_map_chr16 <- vroom(file="./results/lung_specific_GRN/significant_eqtls_chr16.txt", delim="\t", col_select = c(snp, snp_chr))
+lung_map_chr17 <- vroom(file="./results/lung_specific_GRN/significant_eqtls_chr17.txt", delim="\t", col_select = c(snp, snp_chr))
+lung_map_chr18 <- vroom(file="./results/lung_specific_GRN/significant_eqtls_chr18.txt", delim="\t", col_select = c(snp, snp_chr))
+lung_map_chr19 <- vroom(file="./results/lung_specific_GRN/significant_eqtls_chr19.txt", delim="\t", col_select = c(snp, snp_chr))
+lung_map_chr20 <- vroom(file="./results/lung_specific_GRN/significant_eqtls_chr20.txt", delim="\t", col_select = c(snp, snp_chr))
+lung_map_chr21 <- vroom(file="./results/lung_specific_GRN/significant_eqtls_chr21.txt", delim="\t", col_select = c(snp, snp_chr))
+lung_map_chr22 <- vroom(file="./results/lung_specific_GRN/significant_eqtls_chr22.txt", delim="\t", col_select = c(snp, snp_chr))
+lung_map_chrX <- vroom(file="./results/lung_specific_GRN/significant_eqtls_chrX.txt", delim="\t", col_select = c(snp, snp_chr))
+
+lung_map <- rbind(lung_map_chr1, lung_map_chr2, lung_map_chr3, lung_map_chr4, lung_map_chr5, lung_map_chr6,
+                  lung_map_chr7, lung_map_chr8, lung_map_chr9, lung_map_chr10, lung_map_chr11,
+                  lung_map_chr12, lung_map_chr13, lung_map_chr14, lung_map_chr15, lung_map_chr16,
+                  lung_map_chr17, lung_map_chr18, lung_map_chr19, lung_map_chr20, lung_map_chr21,
+                  lung_map_chr22, lung_map_chrX)
+
+# counting the number of SNPs per chromosome (GTEx and lung-specific GRN)
+gtex_snps_count <- gtex_snps %>% count(chr)
+lung_map_eqtls_count <- lung_map %>% count(snp_chr)
+
+# calculating gene density per Mb for each chromosome
+genomeSum <- read.csv("./data/genomeSummary_grch38p13.txt", sep="\t", skip=1)
+genomeSum <- genomeSum %>% 
+  mutate(geneDensity = genomeSum$Gene/genomeSum$Size..Mb.) %>% #compute gene density
+  mutate(Chromosome = tolower(Type)) %>% dplyr::select(geneDensity, Chromosome)
+genomeSum[23,2] <- "chrX"; genomeSum[24,2] <- "chrY"; genomeSum[25,2] <- "chrMT"
+
+# merging the two count tables (GTEx and lung-specific GRN)
+lung_map_count_merged <- merge(lung_map_eqtls_count, gtex_snps_count, by=1, all=TRUE) %>%
+  dplyr::rename("Chromosome"=snp_chr, "eQTL_eGene_interactions"=n.x, "snps_number"=n.y) %>%
+  merge(genomeSum, by="Chromosome")
+
+#pdf("figures/lung_eqtl_map/cor_lung_map_cis_per_chromosome.pdf", width = 13, height = 6)
+options(scipen = 6)
+corr_gg <- ggplot(lung_map_count_merged, aes(x = snps_number, y = eQTL_eGene_interactions)) +
+  geom_smooth(fullrange = TRUE, method = lm, alpha = 0.2, level = 0.95, color = "red", fill = "#009444") +
+  geom_count(aes(size = geneDensity)) +
+  geom_text_repel(aes(label = Chromosome),
+                  min.segment.length = 0,
+                  box.padding   = 0.35,
+                  point.padding = 0.5,
+                  segment.color = 'grey50',
+                  max.overlaps = 30) +
+  stat_cor(method = "pearson", label.x = 1000, label.y = 90000, size = 7) +
+  scale_x_continuous("Number of SNPs", expand = c(0, 0), limits = c(0, NA)) +
+  # the limits argument is set to -100000 so that the CI band can extend to the end of the plot
+  # setting limits to -big number ensures the CI band extends to ends of plot along with coord_cartesian
+  scale_y_continuous("Number of eQTL-eGene interactions", expand = c(0, 0),
+                     limits = c(-1000000, 100000)) +
+  #labs(title = "Correlation between the number of eQTLs from lung-specific GRN and the number of SNPs from GTEx", hjust = 1) +
+  coord_cartesian(xlim = c(0, NA), ylim = c(0, NA)) + 
+  guides(size = guide_legend("Genes/Mb")) +
+  scale_size_continuous(limits = c(10, 60)) +
+  theme_classic() +
+  theme(plot.title = element_blank(),
+        #axis.title.x = element_blank(),
+        legend.text=element_text(size=16),
+        legend.title=element_text(size=18),
+        #legend.position = "none",
+        #legend.direction = "horizontal",
+        axis.text=element_text(size=16, colour = "black"),
+        axis.title=element_text(size=18, colour = "black"))
+corr_gg
+#dev.off()
+```
+
+## 1.8 Number of human protein-protein interactions (PPI) in the STRING PPI network and lung-specific PPI network.
+
+```{r ppis}
+# getting the number of human PPIs in STRING and LSPPIN (with combined score 0.7).
+PPI_700 <- read.table(gzfile("results/string/tab_human_PPIs.full.v11.5_700.txt.gz"), header = FALSE, sep="\t") # 505,968 PPIs
+# removing all characters before and up to "."
+PPI_700$V1 <- gsub(".*\\.", "", PPI_700$V1); PPI_700$V2 <- gsub(".*\\.", "", PPI_700$V2)
+string_700 <- distinct(PPI_700) # 505,968 PPIs
+# read ### 3. Construction of lung-specific protein-protein interaction network (LSPPIN) for more info.
+lsppin_700 <- subset(string_700, (string_700$V1 %in% l_p_df$protein_id & 
+                                    string_700$V2 %in% l_p_df$protein_id)) # 210,192 PPIs
+
+lung.map.ppis <- data.frame(
+  ppis = rep(c("LSPPIN","STRING")),
+  number = c(210192, (505968-210192)),
+  percentage = c(round((210192/505968)*100, 2),
+                 round(((505968-210192)/505968)*100, 2)))
+
+#pdf("figures/lung_eqtl_map/lung_map_ppis.pdf", width = 9, height = 9)
+ggplot(lung.map.ppis, aes(x = "", y = percentage, fill = ppis)) +
+  geom_bar(width = 1, stat = "identity", fill = c("#009444", "darkgrey"), color = "white") +
+  coord_polar("y", start = 0)+
+  #geom_text(aes(y = percentage, label = snps), color = "white")+
+  #scale_fill_manual(values = mycols) +
+  theme_void()
+#dev.off()
+
+df <- tibble(y = c(1,3), x = 0, r = c(1,3))
+#pdf("figures/lung_eqtl_map/test.pdf", width = 14, height = 9)
+df_gg <- ggplot(df) + 
+  geom_circle(aes(x0 = x, y0 = y, r = r)) + 
+  coord_fixed() +
+  theme_classic() #+
+  # theme(plot.title = element_blank(),
+  #       axis.title = element_blank(),
+  #       legend.text=element_text(size=16),
+  #       legend.title=element_text(size=18),
+  #       #legend.position = "none",
+  #       #legend.direction = "horizontal",
+  #       axis.text=element_text(size=16, colour = "black"),
+  #       axis.title=element_text(size=18, colour = "black"))
+df_gg
+#dev.off()
+```
+
+## 1.9. Number of unique human proteins in the STRING PPI network and the lung-specific PPI network.
+
+```{r proteins}
+# getting the number per chromosome
+string_proteins <- unique(c(string_700$V1, string_700$V2)) # 16,814
+lsspin_proteins <- unique(c(lsppin_700$V1, lsppin_700$V2)) # 10,188
+
+lung.map.p <- data.frame(
+  ppis = rep(c("LSPPIN","STRING")),
+  number = c(10188, (16814-10188)),
+  percentage = c(round((10188/16814)*100, 2),
+                 round(((16814-10188)/16814)*100, 2)))
+
+#pdf("figures/lung_eqtl_map/lung_map_proteins.pdf", width = 9, height = 9)
+ggplot(lung.map.p, aes(x = "", y = percentage, fill = ppis)) +
+  geom_bar(width = 1, stat = "identity", fill = c("#009444", "darkgrey"), color = "white") +
+  coord_polar("y", start = 0) +
+  #geom_text(aes(y = percentage, label = snps), color = "white")+
+  #scale_fill_manual(values = mycols) +
+  theme_void()
+#dev.off()
+```
+
+### 2. Construction of COPD-associated lung-specific gene regulatory map (GRN).
+
+```{r copd_codes3d_results}
+### Getting number of COPD-associated GWAS snps
+snps <- readLines("data/snps/263_COPD_snps_5E-8.txt") # 263
+
+### Reading significant spatial interactions in lung
+sp_lung <- read.table("results/codes3d/lung/significant_eqtls.txt", header = TRUE, sep = "\t") # 151
+
+### Getting spatial eQTLs in lung
+sp_lung_eqtls <- unique(sp_lung$snp) # 103
+#writeLines(sp_lung_eqtls, con = "results/codes3d/lung/copd_lung_eqtl_snps.txt", sep = "\n")
+
+### Getting spatially regulated genes in lung
+sp_lung_egenes <- unique(sp_lung$gene) # 107
+#writeLines(sp_lung_egenes, con = "results/codes3d/lung/copd_lung_egenes.txt", sep = "\n")
+```
+
+## 2.1 Percentage of spatial eQTL SNPs and non-eQTL SNPs across lung.
+
+```{r spatial_eqtl_vs_non-eQTL, fig.width=5, fig.height=7}
+### getting eqtls vs non-eqtls in lung
+copd.snp.lung <- data.frame(
+    snps = c("eQTL","non-eQTL"),
+    number = c(length(sp_lung_eqtls), length(snps)-length(sp_lung_eqtls)),
+    percentage = c(round(length(sp_lung_eqtls)/length(snps)*100, 2),
+                   round((length(snps)-length(sp_lung_eqtls))/length(snps)*100, 2)))
+
+#pdf("figures/functional_annotation/lung_eqtls_vs_non-eqtls.pdf", width = 8, height = 9)
+ggplot(snp.lung, aes(x = factor(snps, level=c("non-eQTL","eQTL")), y = percentage), fill = snps) +
+    geom_bar(stat="identity", position = "dodge") + 
+    scale_fill_manual(values=c("#ED1C24", "grey")) +
+    scale_y_continuous("Percentage", expand = c(0,0), limits = c(0,65)) +
+    theme_classic() +
+    theme(plot.title = element_blank(),
+          axis.title.x = element_blank(),
+          legend.text=element_text(size=20),
+          legend.title=element_blank(),
+          legend.position = "none",
+          #legend.direction = "horizontal",
+          axis.text=element_text(size=20, colour = "black"),
+          axis.title=element_text(size=28, colour = "black"),
+          strip.text.x = element_text(size = 19, colour = "black")) +
+    geom_text(aes(y = percentage, label = paste0("n=", number)),
+              position=position_dodge(width=0.9), vjust=-0.25, color = "black", 
+              size = 8, fontface = 'italic')
+#dev.off()
+```
+
+## 2.2. Functional annotation of eQTLs associated with COPD.
+
+We used [wANNOVAR tool](http://wannovar.wglab.org/) to obtain information about the locus eQTLs tagged (9 June 2021). First, we extracted the funnctional annotation for COPD-associated eQTLs: `cut -f1,2,3,6,132 results/wannovar/query.output.genome_summary.txt | sort -u > results/wannovar/copd_fun_snp_ann.txt`
+
+```{r wANNOVAR, fig.width=7, fig.height=5}
+# Calculating percentage of functionally annotated SNPs
+cal_ann <- function(phe, total) {
+    df <- data.frame(matrix(ncol=3, nrow=0))
+    colnames(df)<- c("annotation","number", "percent")
+    for (i in 1:length(phe)){
+        down <- nrow(phe[which(phe$Func.refGene=="downstream"), ])
+        df[nrow(df) + 1,] = list(annotation = "downstream", number = down, percent = down/total*100)
+        ex <- nrow(phe[which(phe$Func.refGene=="exonic"), ])
+        df[nrow(df) + 1,] = list(annotation = "exonic", number = ex, percent = ex/total*100)
+        inter <- nrow(phe[which(phe$Func.refGene=="intergenic"), ])
+        df[nrow(df) + 1,] = list(annotation = "intergenic", number = inter, percent = inter/total*100)
+        intro <- nrow(phe[which(phe$Func.refGene=="intronic"), ])
+        df[nrow(df) + 1,] = list(annotation = "intronic", number = intro, percent = intro/total*100)
+        ncRNA_ex <- nrow(phe[which(phe$Func.refGene=="ncRNA_exonic"), ])
+        df[nrow(df) + 1,] = list(annotation = "ncRNA_exonic", number = ncRNA_ex,
+                                 percent = ncRNA_ex/total*100)
+        ncRNA_in <- nrow(phe[which(phe$Func.refGene=="ncRNA_intronic"), ])
+        df[nrow(df) + 1,] = list(annotation = "ncRNA_intronic", number = ncRNA_in,
+                                 percent = ncRNA_in/total*100)
+        up <- nrow(phe[which(phe$Func.refGene=="upstream"), ])
+        df[nrow(df) + 1,] = list(annotation = "upstream", number = up, percent = up/total*100)
+        UTR3 <- nrow(phe[which(phe$Func.refGene=="UTR3"), ])
+        df[nrow(df) + 1,] = list(annotation = "UTR3", number = UTR3, percent = UTR3/total*100)
+        }
+    df[!duplicated(df), ]
+}
+
+copd_ann <- read.table("results/wannovar/copd_fun_snp_ann.txt", sep = "\t", header=FALSE)
+copd_ann <- copd_ann[order(copd_ann$V1, decreasing = TRUE),]
+colnames(copd_ann) <- copd_ann[1, ]; copd_ann <- copd_ann[-1, ]
+copd_ann_lung <- subset(copd_ann, copd_ann$Otherinfo %in% lung_eqtls) # 103
+
+copd_fun_ann_lung <- cal_ann(copd_ann_lung, length(lung_eqtls))
+
+# Lung eQTLs
+l_number <- c(copd_fun_ann_lung[copd_fun_ann_lung$annotation=="downstream",][,2],
+              copd_fun_ann_lung[copd_fun_ann_lung$annotation=="exonic",][,2],
+              copd_fun_ann_lung[copd_fun_ann_lung$annotation=="intergenic",][,2],
+              copd_fun_ann_lung[copd_fun_ann_lung$annotation=="intronic",][,2],
+              copd_fun_ann_lung[copd_fun_ann_lung$annotation=="ncRNA_intronic",][,2],
+              copd_fun_ann_lung[copd_fun_ann_lung$annotation=="ncRNA_exonic",][,2],
+              copd_fun_ann_lung[copd_fun_ann_lung$annotation=="UTR3",][,2])
+l_percent <- c(copd_fun_ann_lung[copd_fun_ann_lung$annotation=="downstream",][,3],
+              copd_fun_ann_lung[copd_fun_ann_lung$annotation=="exonic",][,3],
+              copd_fun_ann_lung[copd_fun_ann_lung$annotation=="intergenic",][,3],
+              copd_fun_ann_lung[copd_fun_ann_lung$annotation=="intronic",][,3],
+              copd_fun_ann_lung[copd_fun_ann_lung$annotation=="ncRNA_intronic",][,3],
+              copd_fun_ann_lung[copd_fun_ann_lung$annotation=="ncRNA_exonic",][,3],
+              copd_fun_ann_lung[copd_fun_ann_lung$annotation=="UTR3",][,3])
+
+lung_eqtls.df <- data.frame(annotation = c("downstream", "exonic", "intergenic", "intronic",
+                                           "ncRNA_intronic", "ncRNA_exonic", "UTR3"),
+                            number = l_number,
+                            percent = l_percent)
+
+#pdf("figures/functional_annotation/lung_copd_fun_ann.pdf", width = 8, height = 5)
+ggplot(lung_eqtls.df, aes(x = annotation, y = percent, fill = "#009444")) +
+  geom_bar(stat="identity", position = "dodge") + 
+  theme_classic() +
+  theme(plot.title = element_blank(),
+        axis.title.x = element_blank(),
+        legend.position = "none",
+        axis.text=element_text(size=14, colour = "black"),
+        axis.text.x=element_text(vjust = 0.5, hjust=0.75),
+        axis.title=element_text(size=14, colour = "black")) +
+  scale_fill_manual(values = "#009444") +
+  scale_y_continuous("Functional annotation", expand = c(0,0), limits = c(0,75)) + 
+  geom_text(aes(y = percent, label = paste0(round(percent, digits=2), "%")),
+            position=position_dodge(width=0.9), vjust=0.75, hjust=-0.15, color = "black", size = 3.5) +
+  #scale_y_continuous(limits = c(0, 70)) +
+  xlab("Percentage") +
+  coord_flip()
+#dev.off()
+```
+
+## 2.3. Number of eGenes per eQTL SNP.
+
+```{r genes_per_eqtl}
+### getting the number of eGenes per eQTL SNP
+copd.snps.x <- distinct(sp_lung[,c("snp", "gene")])
+copd.snps.freq <- count(distinct(sp_lung[,c("snp", "gene")]), snp) # 103 eQTL SNPs
+copd.snps.freq <- data.frame(table(copd.snps.freq$n))
+colnames(copd.snps.freq) <- c("genes", "snps")
+#copd.snps.freq$genes <- as.numeric(as.character(copd.snps.freq$genes))
+
+#pdf("figures/functional_annotation/lung_copd_genes_per_eqtl.pdf", width = 5, height = 9)
+ggplot(copd.snps.freq, aes(x = factor(snps, level=c("2","8", "26", "67")), y = genes)) + 
+  geom_bar(stat="identity", position = "dodge", fill = "#009444") + 
+  scale_fill_manual(values=c("#009444")) +
+  scale_x_discrete("Number of eQTL SNPs") +
+  scale_y_discrete("Number of eGenes", expand = c(0,0)) +
+  #scale_y_continuous(limits=c(0, 7), expand=c(0,0)) +
+  theme_classic() +
+  theme(plot.title = element_blank(),
+        #axis.title.x = element_blank(),
+        legend.text=element_text(size=20),
+        legend.title=element_blank(),
+        legend.position = "none",
+        #legend.direction = "horizontal",
+        axis.text=element_text(size=20, colour = "black"),
+        axis.title=element_text(size=24, colour = "black"),
+        strip.text.x = element_text(size = 19, colour = "black")) + 
+  geom_text(aes(y = genes, label = paste0("n=", genes)),
+            position=position_dodge(width=0.9), vjust=-0.25, color = "black", 
+            size = 8, fontface = 'italic')
+  #labs(y = "Number of eGenes")
+#dev.off()
+```
+
+## 2.4. Percentage of spatial cis-, trans-intrachromosomal and trans-interchromosomal eQTL-eGene interactions.
+
+```{r cis_vs_trans, fig.width=5, fig.height=7}
+### Reading significant spatial interactions in lung
+sp_lung <- read.table("results/codes3d/lung/significant_eqtls.txt", header = TRUE, sep = "\t") #151
+
+### getting eqtls vs non-eqtls in lung
+copd.snp.lung <- data.frame(
+    interactions = c("Cis","Trans-intra", "Trans-inter"),
+    number = c(148, 1, 2),
+    percentage = c(round(148/151*100, 2),
+                   round(1/151*100, 2),
+                   round(2/151*100, 2)))
+
+#pdf("figures/functional_annotation/lung_copd_cis_vs_trans.pdf", width = 7, height = 9)
+ggplot(copd.snp.lung, aes(x = factor(interactions, 
+                                     level=c("Cis","Trans-intra", "Trans-inter")), y = percentage)) +
+    geom_bar(stat="identity", position="dodge", fill="#009444") + 
+    scale_fill_manual(values=c("#009444")) +
+    scale_x_discrete("Interaction type") +
+    scale_y_continuous("Percentage", expand = c(0,0), limits = c(0, 105)) +
+    theme_classic() +
+    theme(plot.title = element_blank(),
+          #axis.title.x = element_blank(),
+          legend.text=element_text(size=20),
+          legend.title=element_blank(),
+          legend.position = "none",
+          #legend.direction = "horizontal",
+          axis.text=element_text(size=20, colour = "black"),
+          axis.title=element_text(size=24, colour = "black"),
+          strip.text.x = element_text(size = 15, colour = "black")) +
+    geom_text(aes(y = percentage, label = paste0("n=", number)),
+              position=position_dodge(width=0.9), vjust=-0.25, color = "black", 
+              size = 8, fontface = 'italic')
+#dev.off()
+```
+
+## 2.5. Percentage of protein-coding genes, non-coding RNA genes and pseudogenes.
+
+```{r gene_types, fig.width=5, fig.height=7}
+### Getting spatially regulated genes in lung
+sp_lung_egenes <- unique(sp_lung$gene) # 107
+
+### getting eqtls vs non-eqtls in lung
+copd.gene.lung <- data.frame(
+    gene_types = c("Protein-coding","Non-coding RNA", "Pseudogene"),
+    number = c(84, 22, 1),
+    percentage = c(round(84/107*100, 2),
+                   round(22/107*100, 2),
+                   round(1/107*100, 2)))
+
+#pdf("figures/functional_annotation/lung_copd_gene_types.pdf", width = 8, height = 9)
+ggplot(copd.gene.lung, aes(x = factor(gene_types, 
+                                     level=c("Protein-coding","Non-coding RNA", "Pseudogene")),
+                           y = percentage)) +
+    geom_bar(stat="identity", position="dodge", fill="#009444") + 
+    scale_fill_manual(values=c("#009444")) +
+    scale_y_continuous("Percentage", expand = c(0,0), limits = c(0, 85)) +
+    scale_x_discrete("Gene type") +
+    theme_classic() +
+    theme(plot.title = element_blank(),
+          #axis.title.x = element_blank(),
+          legend.text=element_text(size=20),
+          legend.title=element_blank(),
+          legend.position = "none",
+          #legend.direction = "horizontal",
+          axis.text=element_text(size=20, colour = "black"),
+          axis.title=element_text(size=24, colour = "black"),
+          strip.text.x = element_text(size = 15, colour = "black")) +
+    geom_text(aes(y = percentage, label = paste0("n=", number)),
+              position=position_dodge(width=0.9), vjust=-0.25, color = "black", 
+              size = 8, fontface = 'italic')
+#dev.off()
+```
+
+## 2.6. [OPTIONAL] Replication in lung eQTL consortium dataset.
+
+We have calculated lung cis-acting (+/- 1MB) eQTLs using the lung eQTL consortium data. We found 11 out of 263 SNPs that are not present in the lung eQTL consortium dataset. rs10491678 is available, but there is no probeset nearby.
+
+```{r LungConsortium_vs_GTEx, fig.width=7, fig.height=7}
+### Loading lung eqtl consortium eqtls for COPD-associated snps
+nsp_cons <- read.table("results/lung_eqtl_consortium/eQTL_251snps_n1038.txt", header = TRUE, sep = "\t") # 9,878 cis-acting interactions
+nsp_cons_eqtls <- unique(nsp_cons$ID) # 251 eQTL SNPs
+nsp_cons_egenes <- unique(nsp_cons$gene) # 2,379 eGenes
+nsp_cons_eqtl_egene_pairs <- unique(subset(nsp_cons, select = c("ID", "gene"))) # 5,724 eQTL-eGene pairs
+
+sign_nsp_cons <- subset(nsp_cons, P < 0.00000005) #171 cis-acting interactions
+sign_nsp_cons_eqtls <- unique(sign_nsp_cons$ID) # 63 eQTL SNPs
+sign_nsp_cons_egenes <- unique(sign_nsp_cons$gene) # 71 eGenes
+
+# Checking overlaps between spatial CoDeS3D and non-spatial lung consortium eQTLs
+#mixcolor(0.5, RGB(0, 136, 55), RGB(194, 165, 207)) --> RGB(97, 150.5, 131) #619683
+colors <- c("#009444", "#c2a5cf", "#619683")
+sp_nsplc_eqtls <- c("Spatial" = length(sp_lung_eqtls), "Non-spatial" = length(sign_nsp_cons_eqtls),
+                  "Spatial&Non-spatial" = length(intersect(sp_lung_eqtls, sign_nsp_cons_eqtls)))
+
+#pdf("figures/functional_annotation/spatial_codes3d_vs_nonspatial_lungcons_eqtls.pdf", width = 8, height = 2)
+sp_nsplc_eqtls_venn <- euler(sp_nsplc_eqtls)
+par(cex=0.7)
+plot(sp_nsplc_eqtls_venn,
+     fills = list(fill = colors), 
+     cex.main = 2.5,
+     quantities = TRUE,
+     legend = list(labels = c("Spatial CoDeS3D", "Non-spatial Lung Consortium")))
+#dev.off()
+
+# Checking overlaps between non-spatial CoDeS3D and non-spatial lung consortium eQTLs
+#mixcolor(0.5, RGB(166, 219, 160), RGB(194, 165, 207)) --> RGB(180, 192, 183.5) #b4c0b7
+#colors <- c("#a6dba0", "#c2a5cf", "#b4c0b7")
+#nsp_nsplc_eqtls <- c("CoDeS3D" = length(nsp_lung_eqtls),
+#                     "LungConsortium" = length(sign_nsp_cons_eqtls),
+#                     "CoDeS3D&LungConsortium" = length(intersect(nsp_lung_eqtls, sign_nsp_cons_eqtls)))
+
+#pdf("figures/functional_annotation/nonspatial_codes3d_vs_nonspatial_lungcons_eqtls.pdf", width = 8, height = 8)
+#nsp_nsplc_eqtls_venn <- euler(nsp_nsplc_eqtls)
+#par(cex=0.7)
+#plot(nsp_nsplc_eqtls_venn,
+#     fills = list(fill = colors), 
+#     cex.main = 1.5,
+#     quantities = TRUE,
+#     legend = list(labels = c("Non-spatial CoDeS3D", "Non-spatial Lung Consortium")))
+#dev.off()
+
+# Checking overlaps between spatial CoDeS3D and non-spatial CoDeS3D eQTLs
+#mixcolor(0.5, RGB(0, 136, 55), RGB(166, 219, 160)) --> RGB(83, 177.5, 107.5) #53b16b
+#colors <- c("#008837", "#a6dba0", "#53b16b")
+#sp_nsp_eqtls <- c("Spatial" = length(sp_lung_eqtls), "Non-spatial" = length(nsp_lung_eqtls),
+#                  "Spatial&Non-spatial" = length(intersect(sp_lung_eqtls, nsp_lung_eqtls)))
+
+#pdf("figures/functional_annotation/spatial_vs_nonspatial_codes3d_eqtls.pdf", width = 8, height = 2)
+#sp_nsp_eqtls_venn <- euler(sp_nsp_eqtls)
+#par(cex=0.7)
+#plot(sp_nsp_eqtls_venn,
+#     fills = list(fill = colors), 
+#     cex.main = 1.5,
+#     quantities = TRUE,
+#     legend = list(labels = c("Spatial CoDeS3D", "Non-spatial CoDeS3D")))
+#dev.off()
+
+### Identification of overlaps among spatial CoDeS3D and non-spatial Lung Consortium eQTL-eGene interactions.
+
+## Extract eQTL-eGene pairs
+sp_lung_int <- sp_lung %>% select(snp, gene); sp_lung_int <- unique(sp_lung_int)
+#nsp_lung_int <- nsp_lung %>% select(snp, gene); nsp_lung_int <- unique(nsp_lung_int)
+nsp_cons_int <- sign_nsp_cons %>% select(ID, gene); nsp_cons_int <-unique(nsp_cons_int)
+nsp_cons_int <- nsp_cons_int %>% rename(snp = ID)
+
+
+## Checking overlaps between spatial CoDeS3D and non-spatial lung consortium eQTL-eGene interactions
+colors <- c("#009444", "#c2a5cf", "#619683")
+sp_nsplc_int <- c("Spatial" = nrow(sp_lung_int), "Non-spatial" = nrow(nsp_cons_int),
+                  "Spatial&Non-spatial" = nrow(intersect(sp_lung_int, nsp_cons_int)))
+
+#pdf("figures/functional_annotation/spatial_codes3d_vs_nonspatial_lungcons_interactions.pdf", width = 8, height = 2)
+sp_nsplc_venn <- euler(sp_nsplc_int)
+par(cex=0.7)
+plot(sp_nsplc_venn,
+     fills = list(fill = colors), 
+     cex.main = 1.5,
+     quantities = TRUE,
+     legend = list(labels = c("Spatial CoDeS3D", "Non-spatial Lung Consortium")))
+#dev.off()
+
+# Checking overlaps between spatial and non-spatial CoDeS3D eQTL-eGene interactions
+#colors <- c("#008837", "#a6dba0", "#53b16b")
+#sp_nsp_int <- c("Spatial" = nrow(sp_lung_int), "Non-spatial" = nrow(nsp_lung_int),
+#                "Spatial&Non-spatial" = nrow(intersect(sp_lung_int, nsp_lung_int)))
+
+#pdf("figures/functional_annotation/spatial_vs_nonspatial_codes3d_interactions.pdf", width = 9, height = 6)
+#sp_nsp_venn <- euler(sp_nsp_int)
+#par(cex=0.7)
+#plot(sp_nsp_venn,
+#     fills = list(fill = colors), 
+#     cex.main = 1.5,
+#     quantities = TRUE,
+#     legend = list(labels = c("Spatial CoDeS3D", "Non-spatial CoDeS3D")))
+#dev.off()
+
+# Checking overlaps between non-spatial CoDeS3D and non-spatial lung consortium eQTL-eGene interactions
+#colors <- c("#a6dba0", "#c2a5cf", "#b4c0b7")
+#nsp_nsplc_int <- c("CoDeS3D" = nrow(nsp_lung_int), "LungConsortium" = nrow(nsp_cons_int),
+#                   "CoDeS3D&LungConsortium" = nrow(intersect(nsp_lung_int, nsp_cons_int)))
+
+#pdf("figures/functional_annotation/nonspatial_codes3d_vs_nonspatial_lungcons_interactions.pdf", width = 12, height = 6)
+#nsp_nsplc_venn <- euler(nsp_nsplc_int)
+#par(cex=0.7)
+#plot(nsp_nsplc_venn,
+#     fills = list(fill = colors), 
+#     cex.main = 1.5,
+#     quantities = TRUE,
+#     legend = list(labels = c("Non-spatial CoDeS3D", "Non-spatial Lung Consortium")))
+#dev.off()
+
+### Identification of overlaps among spatial CoDeS3D and non-spatial Lung Consortium genes.
+# Checking overlaps between spatial CoDeS3D and non-spatial lung consortium eQTL-eGene interactions
+colors <- c("#009444", "#c2a5cf", "#619683")
+sp_nsplc_genes <- c("Spatial" = length(sp_lung_egenes), "Non-spatial" = length(sign_nsp_cons_egenes),
+                  "Spatial&Non-spatial" = length(intersect(sp_lung_egenes, sign_nsp_cons_egenes)))
+
+#pdf("figures/functional_annotation/spatial_codes3d_vs_nonspatial_lungcons_genes.pdf", width = 8, height = 2)
+sp_nsplc_genes_venn <- euler(sp_nsplc_genes)
+par(cex=0.7)
+plot(sp_nsplc_genes_venn,
+     fills = list(fill = colors), 
+     cex.main = 1.5,
+     quantities = TRUE,
+     legend = list(labels = c("Spatial CoDeS3D", "Non-spatial Lung Consortium")))
+#dev.off()
+
+# Checking overlaps between spatial and non-spatial CoDeS3D eGenes
+#colors <- c("#008837", "#a6dba0", "#53b16b")
+#sp_nsp_genes <- c("Spatial" = length(sp_lung_egenes), "Non-spatial" = length(nsp_lung_egenes),
+#                "Spatial&Non-spatial" = length(intersect(sp_lung_egenes, nsp_lung_egenes)))
+
+#pdf("figures/functional_annotation/spatial_vs_nonspatial_codes3d_genes.pdf", width = 8, height = 2)
+#sp_nsp_genes_venn <- euler(sp_nsp_genes)
+#par(cex=0.7)
+#plot(sp_nsp_genes_venn,
+#     fills = list(fill = colors), 
+#     cex.main = 1.5,
+#     quantities = TRUE,
+#     legend = list(labels = c("Spatial CoDeS3D", "Non-spatial CoDeS3D")))
+#dev.off()
+
+# Checking overlaps between non-spatial CoDeS3D and non-spatial lung consortium eQTL-eGene interactions
+#colors <- c("#a6dba0", "#c2a5cf", "#b4c0b7")
+#nsp_nsplc_genes <- c("CoDeS3D" = length(nsp_lung_egenes), "LungConsortium" = length(sign_nsp_cons_egenes),
+#                   "CoDeS3D&LungConsortium" = length(intersect(nsp_lung_egenes, sign_nsp_cons_egenes)))
+
+#pdf("figures/functional_annotation/nonspatial_codes3d_vs_nonspatial_lungcons_genes.pdf", width = 8, height = 2)
+#nsp_nsplc_genes_venn <- euler(nsp_nsplc_genes)
+#par(cex=0.7)
+#plot(nsp_nsplc_genes_venn,
+#     fills = list(fill = colors), 
+#     cex.main = 1.5,
+#     quantities = TRUE,
+#     legend = list(labels = c("Non-spatial CoDeS3D", "Non-spatial Lung Consortium")))
+#dev.off()
+```
+
+### 3. Construction of lung-specific protein-protein interaction network (LSPPIN).
+
+The STRING PPI network (version 11.5, protein.links.full.v11.0.txt.gz) was downloaded from [STRING website](https://string-db.org/cgi/download?sessionId=bBkmARm05QYT). We extracted only human PPIs with a combined score ≥ 700 between proteins:
+`zgrep ^"9606\." protein.links.full.v11.5.txt.gz | awk '($16 >= 700) { print $1, $2, $16 }' > human_PPIs.full.v11.5_700.txt`  
+Made the file tab separated: `tr ' ' '\t' < human_PPIs.full.v11.5_700.txt > tab_human_PPIs.full.v11.5_700.txt`  
+And compressed it: `gzip tab_human_PPIs.full.v11.5_700.txt`
+
+```{r PPI_cleaning}
+# loading human PPI network
+PPI_700 <- read.table(gzfile("results/string/tab_human_PPIs.full.v11.5_700.txt.gz"), header = FALSE, sep="\t") # 505,968 PPIs
+# removing all characters before and up to "."
+PPI_700$V1 <- gsub(".*\\.", "", PPI_700$V1); PPI_700$V2 <- gsub(".*\\.", "", PPI_700$V2)
+PPI_700 <- distinct(PPI_700) # 505,968 PPIs
+#write.table(PPI_700, file = "results/string/PPI_700.txt", sep = "\t", col.names = FALSE, row.names=FALSE)
+# extracting unique proteins
+unique_proteins <- unique(c(PPI_700$V1, PPI_700$V2)) # 16,814
+```
+
+Overall, we extracted `r pander(nrow(PPI_700))` PPIs between a total of `r pander(length(unique_proteins))` unique human proteins.
+
+Ensembl protein identifiers were mapped to Ensembl gene identifiers.
+
+```{r protein_ID_mapping}
+# reading lung-specific gene regulatory network (GRN) data
+lung_GRN_genes <- read.table("data/lung_specific_GRN_genes.txt") # 15,855 genes
+colnames(lung_GRN_genes)<-c("gene_id", "gene_name")
+lung_GRN_genes <- unique(lung_GRN_genes)
+
+# converting transcript IDs to gene IDs
+lung_GRN_genes$gene_id <- gsub("\\..*","", lung_GRN_genes$gene_id)
+# querying protein features
+edb <- EnsDb.Hsapiens.v86
+#hasProteinData(edb) # TRUE
+#listTables(edb)
+# getting protein information for gene IDs
+lung_GRN_proteins <- genes(edb, filter = ~ gene_id %in% lung_GRN_genes$gene_id,
+                       columns = c("protein_id", "gene_name"))
+l_p_df <- bind_rows(lung_GRN_proteins@elementMetadata@listData) # 79,005
+#write.table(l_p_df, file = "results/string/lung_GRN_proteins.txt", sep = "\t", col.names = TRUE, row.names=FALSE)
+# getting only protein and gene IDs and removing protein-gene pairs containing NAs
+l_p_df <- l_p_df[, c("protein_id", "gene_name")]
+l_p_df <- l_p_df[complete.cases(l_p_df), ] # 65,742 proteins
+#write.table(l_p_df, file = "results/string/lung_GRN_gene_pairs.txt", sep = "\t", col.names = TRUE, row.names=FALSE)
+l_p_df <- read.table(gzfile("results/string/lung_GRN_gene_pairs.txt.gz"), header = TRUE, sep="\t", colClasses = "character")
+```
+
+Lung-specific PPIN (LSPPIN) was constructed by combining the STRING PPI network with lung-specific GRN.
+
+```{r LSPPIN}
+#subsetting PPIs that are present in lung tissue
+l_PPI_700 <- subset(PPI_700, (PPI_700$V1 %in% l_p_df$protein_id & PPI_700$V2 %in% l_p_df$protein_id))
+#write.table(l_PPI_700, file = "results/string/LSPPIN.txt", sep = "\t", col.names = FALSE, row.names=FALSE) # 210,192 PPIs
+l_unique_proteins <- unique(c(l_PPI_700$V1, l_PPI_700$V2)) # 10,188
+```
+
+The resulting LSPPIN contained `r pander(nrow(l_PPI_700))` PPIs between `r pander(length(l_unique_proteins))` unique proteins in the lung tissue.
+
+Ensembl protein identifiers were mapped to Ensembl gene identifiers.
+
+```{r protein_ID_mapping, cache=TRUE}
+l_dict <- l_p_df$gene_name # 65,742 proteins
+names(l_dict) <- l_p_df$protein_id
+# This function maps gene names to protein IDs. It takes two arguments: ppi is a dataframe containing IDs for interacting proteins (first two columns: protein1 and protein2) and combined score for their interaction (the third column)
+create_lsppi <- function(ppi, dict){
+    df <- data.frame()
+    for(i in 1:nrow(ppi)){
+        cat("Analysing PPI: ", i, "\n")
+        tryCatch({
+            p1 <- ppi[i,][1]; p2 <- ppi[i,][2]; comb <- ppi[i,][3]
+            t <- c(dict[p1$V1], dict[p2$V2], comb$V3)
+            #cat("PPI is: ", t, "\n")
+            df <- rbind(df, t)
+        }, error=function(e){
+            cat("ERROR: ", conditionMessage(e), "\n")
+        })
+    }
+    df <- distinct(df)
+    colnames(df) <- c("p1", "p2", "combined_score")
+    return(df)
+}
+# Testing
+#test_subset <- subset(l_PPI_700, l_PPI_700$V3>998) # 8,410 PPIs
+#test_lsppi.df <- create_lsppi(test_subset, l_dict)
+
+# Uncomment the line below
+lsppin.df <- create_lsppi(l_PPI_700, l_dict) # 210,192 PPIs
+#write.table(lsppin.df, file = "results/string/LSPPIN.txt", sep = "\t", col.names = TRUE, row.names=FALSE)
+lsppin.df <- read.table(gzfile("results/string/LSPPIN.txt.gz"), header = TRUE, sep = "\t")
+```
+
+### 4. Construction of COPD-associated LSPPIN.
+
+To build COPD-specific LSPPIN, only interactions between COPD-associated genes we extracted from LSPPIN.
+
+```{r COPD_LSPPIN}
+#subsetting COPD-associated PPIs that are present in lung tissue
+copd_lsppin.df <- subset(lsppin.df, (lsppin.df$p1 %in% sp_lung_egenes & lsppin.df$p2 %in% sp_lung_egenes))
+#write.table(copd_lsppin.df, file = "results/string/COPD_LSPPIN_links.txt", sep = "\t", col.names = FALSE, row.names=FALSE) # 28 PPIs
+copd_l_unique_proteins <- unique(c(copd_lsppin.df$p1, copd_lsppin.df$p2)) # 23 proteins
+```
+
+The resulting COPD-associated LSPPIN contained `r pander(nrow(copd_lsppin.df))` PPIs between `r pander(length(copd_l_unique_proteins))` unique proteins in the lung.
+
+## 4.1. Cluster analysis of the identified COPD-associated lung-specific PPIs.
+
+The Louvain clustering algorithm was applied to identify COPD-specific clusters of functionally related proteins within the LSPPIN.
+
+```{r cluster_analysis}
+# loading ASD-specific PPI links and nodes
+copd_l_links <- read.table("results/string/COPD_LSPPIN_links.txt", sep = "\t", header=TRUE)
+copd_l_nodes <- read.table("results/string/COPD_LSPPIN_nodes.txt", sep = "\t", header=TRUE)
+
+## Building COPD LSPPIN
+copd_graph <- graph_from_data_frame(d=copd_l_links, vertices=copd_l_nodes, directed=F)
+
+# Louvain clustering
+copd_lc <- cluster_louvain(copd_graph, weights=NA) #class(a_lc)
+#membership(a_lc)
+communities(copd_lc) # 9 clusters
+#col_nodes <- c("#92278F", "#939598")
+col_names <- c("#1C75BC", "#ED1C24", "black")
+set.seed(1234)
+copd <- layout_with_fr(copd_graph)
+#pdf("figures/copd_ppi/copd_LSPPIN_with_names.pdf", width = 14, height = 10)
+plot(copd_graph, edge.width=2.5, edge.color="lightgray",
+     vertex.color="#009444", vertex.frame.color="#009444",
+     vertex.size=V(copd_graph)$logTPM*7, vertex.label.color=col_names[V(copd_graph)$regulation],
+     layout=copd) # vertex.label=NA
+#dev.off() 
+```
+
+## 4.2. Pathway analysis of the COPD-associated genes within the LSPPIN clusters.
+
+Pathway analysis was performed using the g:GOSt module of the g:Profiler tool. The significance level was determined using Benjamini-Hochberg algorithm (FDR < 0.05) (7 April 2022). Uncomment the lines below to query g:GOSt.
+
+```{r pathway_analysis}
+# This function quieries g:GOSt module of the g:Profiler tool. It takes a vector of genes and quieries the GOSt module. It outputs the dataframe with the query results for the genes.
+query_kegg <- function(genes){
+    tryCatch({
+        t <- gost(query = genes, organism = "hsapiens", ordered_query = TRUE,
+                  multi_query = FALSE, significant = TRUE, exclude_iea = FALSE,
+                  measure_underrepresentation = FALSE, evcodes = TRUE,
+                  user_threshold = 0.05, correction_method = "fdr",
+                  domain_scope = "annotated", custom_bg = NULL,
+                  numeric_ns = "", sources = c("KEGG"), as_short_link = FALSE)
+        return(t)
+        }, error=function(e){
+            cat("ERROR: ", conditionMessage(e), "\n")
+        })
+}
+
+# Pathways analysis for 9 COPD-associated PPIN clusters in the lung
+communities(copd_lc) # 9 clusters
+
+# Uncomment the lines below to query g:GOSt
+# cluster 1
+communities(copd_lc)[1] # to get gene names
+c_1 <- communities(copd_lc)$'1' # to get gene names
+#c_1_path <- query_kegg(c_1)
+#c_1_paths <- c_1_path$result
+#c_1.df <- apply(c_1_paths, 2, as.character)
+#write.table(c_1.df, file = "results/kegg/copd_LSPPIN_cluster1_kegg_fdr.txt", sep = "\t", col.names = TRUE, row.names=FALSE)
+
+# cluster 2
+communities(copd_lc)[2] # to get gene names
+c_2 <- communities(copd_lc)$'2' # to get gene names
+# c_2_path <- query_kegg(c_2)
+# c_2_paths <- c_2_path$result
+# c_2.df <- apply(c_2_paths, 2, as.character)
+# write.table(c_2.df, file = "results/kegg/copd_LSPPIN_cluster2_kegg_fdr.txt", sep = "\t", col.names = TRUE, row.names=FALSE)
+
+# cluster 3
+communities(copd_lc)[3] # to get gene names
+c_3 <- communities(copd_lc)$'3' # to get gene names
+# c_3_path <- query_kegg(c_3)
+# c_3_paths <- c_3_path$result
+# c_3.df <- apply(c_3_paths, 2, as.character)
+# write.table(c_3.df, file = "results/kegg/copd_LSPPIN_cluster3_kegg_fdr.txt", sep = "\t", col.names = TRUE, row.names=FALSE)
+
+# cluster 4
+communities(copd_lc)[4] # to get gene names
+c_4 <- communities(copd_lc)$'4' # to get gene names
+#c_4_path <- query_kegg(c_4) # Uknown pathway
+
+# cluster 5
+communities(copd_lc)[5] # to get gene names
+c_5 <- communities(copd_lc)$'5' # to get gene names
+# c_5_path <- query_kegg(c_5)
+# c_5_paths <- c_5_path$result
+# c_5.df <- apply(c_5_paths, 2, as.character)
+# write.table(c_5.df, file = "results/kegg/copd_LSPPIN_cluster5_kegg_fdr.txt", sep = "\t", col.names = TRUE, row.names=FALSE)
+
+# cluster 6
+communities(copd_lc)[6] # to get gene names
+c_6 <- communities(copd_lc)$'6' # to get gene names
+# c_6_path <- query_kegg(c_6)
+# c_6_paths <- c_6_path$result
+# c_6.df <- apply(c_6_paths, 2, as.character)
+# write.table(c_6.df, file = "results/kegg/copd_LSPPIN_cluster6_kegg_fdr.txt", sep = "\t", col.names = TRUE, row.names=FALSE)
+
+# cluster 7
+communities(copd_lc)[7] # to get gene names
+c_7 <- communities(copd_lc)$'7' # to get gene names
+# c_7_path <- query_kegg(c_7)
+# c_7_paths <- c_7_path$result
+# c_7.df <- apply(c_7_paths, 2, as.character)
+# write.table(c_7.df, file = "results/kegg/copd_LSPPIN_cluster7_kegg_fdr.txt", sep = "\t", col.names = TRUE, row.names=FALSE)
+
+# cluster 8
+communities(copd_lc)[8] # to get gene names
+c_8 <- communities(copd_lc)$'8' # to get gene names
+#c_8_path <- query_kegg(c_8) # Uknown pathway
+
+# cluster 9
+communities(copd_lc)[9] # to get gene names
+c_9 <- communities(copd_lc)$'9' # to get gene names
+# c_9_path <- query_kegg(c_9)
+# c_9_paths <- c_9_path$result
+# c_9.df <- apply(c_9_paths, 2, as.character)
+# write.table(c_9.df, file = "results/kegg/copd_LSPPIN_cluster9_kegg_fdr.txt", sep = "\t", col.names = TRUE, row.names=FALSE)
+```
+
+### 5. Gene Ontology (GO) enrichment analysis of the COPD-associated genes within the LSPPIN clusters.
+
+GO analysis was performed using the g:GOSt module of the g:Profiler tool. The significance level was determined using Benjamini-Hochberg algorithm (FDR < 0.05) (7 April 2022).
+
+```{r go_analysis, fig.width=12, fig.height=5}
+# This function quieries g:GOSt module of the g:Profiler tool. It takes a vector of genes and quieries the GOSt module. It outputs the dataframe with the query results for the genes.
+query_go <- function(genes){
+    tryCatch({
+        t <- gost(query = genes, organism = "hsapiens", ordered_query = TRUE,
+                  multi_query = FALSE, significant = TRUE, exclude_iea = FALSE,
+                  measure_underrepresentation = FALSE, evcodes = TRUE,
+                  user_threshold = 0.05, correction_method = "fdr",
+                  domain_scope = "annotated", custom_bg = NULL,
+                  numeric_ns = "", sources = "GO", as_short_link = FALSE)
+        return(t[["result"]])
+        }, error=function(e){
+            cat("ERROR: ", conditionMessage(e), "\n")
+        })
+}
+
+# COPD-associated eGenes
+copd_lung_go <- query_go(sp_lung_egenes); copd_lung_gos.df <- apply(copd_lung_go, 2, as.character)
+#write.table(copd_lung_gos.df, file = "results/go/copd_lung_all_gos_fdr.txt", sep = "\t", col.names = TRUE, row.names=FALSE)
+copd_lung_gos.df <- read.table("results/go/copd_lung_all_gos_fdr.txt", header = TRUE, sep="\t")
+
+# Extraction top 10 terms for biological process
+copd_lung_go_bp <- copd_lung_gos.df[grep('GO:BP', copd_lung_gos.df[, "source"]), ]
+copd_lung_go_bp_top10 <- as.data.frame(copd_lung_go_bp[1:10,])
+
+#pdf("figures/go/copd_lung_bp_gos_fdr_top10.pdf", width = 9, height = 4)
+ggplot(copd_lung_go_bp_top10, aes(x=factor(term_name, levels = rev(levels(factor(term_name)))),
+                       y=-log10(as.numeric(p_value)), fill="#009444")) +
+    geom_bar(stat="identity") +
+    theme_classic() +
+    theme(plot.title = element_blank(),
+          axis.title.x = element_text(size=16, colour = "black"),
+          axis.text=element_text(size=16, colour = "black"),
+          axis.title.y = element_blank(),
+          legend.position = "none") +
+    scale_fill_manual(values=c("#009444")) +
+    labs(y = "-log10(p)") +
+    geom_hline(aes(yintercept=-log10(as.numeric(0.05))), colour = "red", size = 1) +
+    coord_flip()
+#dev.off()
+
+# Extraction top 10 terms for molecular function
+copd_lung_go_mf <- copd_lung_gos.df[grep('GO:MF', copd_lung_gos.df[, "source"]), ]
+copd_lung_go_mf_top10 <- as.data.frame(copd_lung_go_mf[1:10,])
+
+#pdf("figures/go/copd_lung_mf_gos_fdr_top10.pdf", width = 13, height = 4)
+ggplot(copd_lung_go_mf_top10, aes(x=factor(term_name, levels = rev(levels(factor(term_name)))),
+                       y=-log10(as.numeric(p_value)), fill="#009444")) +
+    geom_bar(stat="identity") +
+    theme_classic() +
+    theme(plot.title = element_blank(),
+          axis.title.x = element_text(size=16, colour = "black"),
+          axis.text=element_text(size=16, colour = "black"),
+          axis.title.y = element_blank(),
+          legend.position = "none") +
+    scale_fill_manual(values=c("#009444")) +
+    labs(y = "-log10(p)") +
+    geom_hline(aes(yintercept=-log10(as.numeric(0.05))), colour = "red", size = 1) +
+    coord_flip()
+#dev.off()
+
+# Extraction top 10 terms for cellular component
+copd_lung_go_cc <- copd_lung_gos.df[grep('GO:CC', copd_lung_gos.df[, "source"]), ]
+copd_lung_go_cc_top10 <- as.data.frame(copd_lung_go_cc[1:10,])
+
+#pdf("figures/go/copd_lung_cc_gos_fdr_top10.pdf", width = 7, height = 4)
+ggplot(copd_lung_go_cc_top10, aes(x=factor(term_name, levels = rev(levels(factor(term_name)))),
+                       y=-log10(as.numeric(p_value)), fill="#009444")) +
+    geom_bar(stat="identity") +
+    theme_classic() +
+    theme(plot.title = element_blank(),
+          axis.title.x = element_text(size=16, colour = "black"),
+          axis.text=element_text(size=16, colour = "black"),
+          axis.title.y = element_blank(),
+          legend.position = "none") +
+    scale_fill_manual(values=c("#009444")) +
+    labs(y = "-log10(p)") +
+    geom_hline(aes(yintercept=-log10(as.numeric(0.05))), colour = "red", size = 1) +
+    coord_flip()
+#dev.off()
+```
+
+### 6. Multimorbidity analysis using multimorbid3D.
+
+## 6.1. Identification of potential multimorbid conditions for COPD.
+
+```{r copd_multimorbidity, fig.width=7, fig.height=7}
+copd_lung_string_multm <- read.table("results/multimorbidity_spatial/significant_enrichment_bootstrap.txt", header = TRUE, sep = "\t", quote="", encoding="UTF-8")
+
+#pdf("figures/multimorbidity/copd_lung_string_multimorbidiry.pdf", width = 9, height = 11)
+s_gg <- ggplot(copd_lung_string_multm, aes(x = level, y = trait)) +
+    geom_point(aes(size = trait_eqtls, fill = adj_pval), alpha = 0.75, shape = 21) +
+    labs( x = "", y = "", size = "Number of eQTLs", fill = "Adj p value") +
+    theme(legend.key=element_blank(), 
+          axis.text.x = element_text(colour = "black", size = 8, angle = 90, 
+                                     vjust = 0.3, hjust = 1), 
+          axis.text.y = element_text(colour = "black", size = 8), 
+          legend.text = element_text(size = 8, colour ="black"), 
+          legend.title = element_text(size = 9, face = "bold"), 
+          panel.background = element_blank(), panel.border = element_rect(colour = "black", 
+                                                                          fill = NA, size = 1),
+          legend.position = "right")
+s_gg
+#dev.off()
+```
+
+## 6.2. Identification of potential multimorbid conditions for CAD and UD.
+
+```{r cad_and_ud_multimorbidity, fig.width=7, fig.height=7}
+cad_lung_string_multm <- read.table("results/multimorbidity_spatial_cad_new/significant_enrichment_bootstrap.txt", header = TRUE, sep = "\t", quote="", encoding="UTF-8")
+ud_lung_string_multm <- read.table("results/multimorbidity_spatial_ud_new/significant_enrichment_bootstrap.txt", header = TRUE, sep = "\t", quote="", encoding="UTF-8")
+
+#pdf("figures/multimorbidity/cad_lung_string_multimorbidiry.pdf", width = 13, height = 11)
+cad_gg <- ggplot(cad_lung_string_multm, aes(x = level, y = trait)) +
+  geom_point(aes(size = trait_eqtls, fill = adj_pval), alpha = 0.75, shape = 21) +
+  labs( x = "", y = "", size = "Number of eQTLs", fill = "Adj p value") +
+  theme(legend.key=element_blank(), 
+        axis.text.x = element_text(colour = "black", size = 8, angle = 90, vjust = 0.3, hjust = 1),
+        axis.text.y = element_text(colour = "black", size = 8), 
+        legend.text = element_text(size = 8, colour ="black"), 
+        legend.title = element_text(size = 9, face = "bold"), 
+        panel.background = element_blank(), panel.border = element_rect(colour = "black", 
+                                                                        fill = NA, size = 1),
+        legend.position = "right")
+cad_gg
+#dev.off()
+
+#pdf("figures/multimorbidity/ud_lung_string_multimorbidiry.pdf", width = 13, height = 11)
+ud_gg <- ggplot(ud_lung_string_multm, aes(x = level, y = trait)) +
+  geom_point(aes(size = trait_eqtls, fill = adj_pval), alpha = 0.75, shape = 21) +
+  labs( x = "", y = "", size = "Number of eQTLs", fill = "Adj p value") +
+  theme(legend.key=element_blank(), 
+        axis.text.x = element_text(colour = "black", size = 8, angle = 90, vjust = 0.3, hjust = 1),
+        axis.text.y = element_text(colour = "black", size = 8), 
+        legend.text = element_text(size = 8, colour ="black"), 
+        legend.title = element_text(size = 9, face = "bold"), 
+        panel.background = element_blank(), panel.border = element_rect(colour = "black", 
+                                                                        fill = NA, size = 1),
+        legend.position = "right")
+ud_gg
+#dev.off()
+```
+
+### 7. Examples of PPI clusters interacting with proteins on levels 1, 2, 3 and 4.
+
+```{r multimorbidity_examples}
+lsppin.df <- read.table(gzfile("results/string/LSPPIN.txt.gz"), header = TRUE, sep = "\t")
+### cluster 1 - sulfur rely system and folate biosynthesis
+cl1_l1_1 <- lsppin.df[grep(c('NUPR1'), lsppin.df[, c("p1")]), ] # 4
+cl1_l1_2 <- lsppin.df[grep(c('MSL1'), lsppin.df[, c("p1")]), ] # 24
+cl1_l1_3 <- lsppin.df[grep(c('SGF29'), lsppin.df[, c("p1")]), ] # 39
+cl1_l1_4 <- lsppin.df[grep(c('MOCS2'), lsppin.df[, c("p1")]), ] # 13
+cl1_l2_1 <- lsppin.df[grep(c('KAT8'), lsppin.df[, c("p1")]), ] # 41
+cl1_l2_2 <- lsppin.df[grep(c('RUVBL1'), lsppin.df[, c("p1")]), ] # 124
+cl1_l2_3 <- lsppin.df[grep(c('SUOX'), lsppin.df[, c("p1")]), ] # 40
+
+# heatmaps for levels 0 and 1
+colors = colorRamp2(c(-1.5,0,1.5), c("blue", "#E8E8E8","red"), space = "RGB")
+
+p1_l0 <- read.table("results/heatmaps/path1_level0.txt", sep = "\t", header=TRUE, row.names = 1)
+row_od = c("MSL1", "MOCS2", "NUPR1", "SGF29")
+p1_l0.mat <- as.matrix(p1_l0)
+ha = rowAnnotation(foo = anno_empty(border = TRUE))
+ht = HeatmapAnnotation(top = anno_empty(border = FALSE))
+#pdf("figures/heatmaps/p1_l0.pdf", width = 14, height = 10)
+Heatmap(p1_l0.mat, name = "log2(aFC)", #column_title = "eQTL SNPs",
+        col = colors, na_col = "white", #row_title = "shared eGenes",
+        cluster_rows = FALSE, cluster_columns = FALSE, row_names_side = "left",
+        column_names_side = "top", row_names_gp = gpar(fontface = "italic"),
+        row_order = row_od,
+        width = unit(10, "cm"), height = unit(10, "cm"),
+        right_annotation = ha, top_annotation = ht,
+        border = TRUE, rect_gp = gpar(col = "grey"))
+decorate_annotation("foo", slice = 1, {
+  grid.rect(x = 0, width = unit(10, "mm"), gp = gpar(fill = NA, col = NA), just = "left")
+  grid.text(paste("Level 0", collapse = "\n"), x = unit(5, "mm"), just = "centre", rot = 90,
+            gp = gpar(fontsize = 13, fontface = "bold"))})
+decorate_annotation("top", slice = 1, {
+  grid.rect(x = 0, width = unit(0.7, "mm"), gp = gpar(fill = NA, col = NA), just = "centre")})
+#dev.off()
+
+p1_l1 <- read.table("results/heatmaps/path1_level1.txt", sep = "\t", header=TRUE, row.names = 1)
+row_od = c("KAT8", "RUVBL1", "SUOX")
+p1_l1.mat <- as.matrix(p1_l1)
+ha = rowAnnotation(foo = anno_empty(border = TRUE))
+ht = HeatmapAnnotation(top = anno_empty(border = FALSE))
+#pdf("figures/heatmaps/p1_l1.pdf", width = 14, height = 10)
+Heatmap(p1_l1.mat, name = "log2(aFC)", #column_title = "eQTL SNPs",
+        col = colors, na_col = "white", #row_title = "shared eGenes",
+        cluster_rows = FALSE, cluster_columns = FALSE, row_names_side = "left",
+        column_names_side = "top", row_names_gp = gpar(fontface = "italic"),
+        row_order = row_od,
+        width = unit(18, "cm"), height = unit(7, "cm"),
+        right_annotation = ha, top_annotation = ht,
+        border = TRUE, rect_gp = gpar(col = "grey"))
+decorate_annotation("foo", slice = 1, {
+  grid.rect(x = 0, width = unit(10, "mm"), gp = gpar(fill = NA, col = NA), just = "left")
+  grid.text(paste("Level 1", collapse = "\n"), x = unit(5, "mm"), just = "centre", rot = 90,
+            gp = gpar(fontsize = 13, fontface = "bold"))})
+decorate_annotation("top", slice = 1, {
+  grid.rect(x = 0, width = unit(0.7, "mm"), gp = gpar(fill = NA, col = NA), just = "centre")})
+#dev.off()
+
+### cluster 2 - axon guidance and regulation of actin cytoskeleton
+cl2_l1_1 <- lsppin.df[grep(c('TESK2'), lsppin.df[, c("p1")]), ] # 1
+cl2_l1_2 <- lsppin.df[grep(c('SSH2'), lsppin.df[, c("p1")]), ] # 8
+
+cl2_l2_1 <- lsppin.df[grep(c('PPP3CA'), lsppin.df[, c("p1")]), ] # 70
+cl2_l2_2 <- lsppin.df[grep(c('TESK2'), lsppin.df[, c("p1")]), ] # 1
+cl2_l2_3 <- lsppin.df[grep(c('LIMK1'), lsppin.df[, c("p1")]), ] # 27
+cl2_l2_4 <- lsppin.df[grep(c('CFL1'), lsppin.df[, c("p1")]), ] # 39
+cl2_l2_5 <- lsppin.df[grep(c('SSH1'), lsppin.df[, c("p1")]), ] # 16
+cl2_l2_6 <- lsppin.df[grep(c('SSH3'), lsppin.df[, c("p1")]), ] # 8
+cl2_l2_7 <- lsppin.df[grep(c('PPP3CC'), lsppin.df[, c("p1")]), ] # 47
+cl2_l2_8 <- lsppin.df[grep(c('CFL2'), lsppin.df[, c("p1")]), ] # 11
+
+# heatmaps for levels 0 and 1
+colors = colorRamp2(c(-1.5,0,1.5), c("blue", "#E8E8E8","red"), space = "RGB")
+
+p2_l0 <- read.table("results/heatmaps/path2_level0.txt", sep = "\t", header=TRUE, row.names = 1)
+row_od = c("SSH2", "TESK2")
+p2_l0.mat <- as.matrix(p2_l0)
+ha = rowAnnotation(foo = anno_empty(border = TRUE))
+ht = HeatmapAnnotation(top = anno_empty(border = FALSE))
+#pdf("figures/heatmaps/p2_l0.pdf", width = 14, height = 10)
+Heatmap(p2_l0.mat, name = "log2(aFC)", #column_title = "eQTL SNPs",
+        col = colors, na_col = "white", #row_title = "shared eGenes",
+        cluster_rows = FALSE, cluster_columns = FALSE, row_names_side = "left",
+        column_names_side = "top", row_names_gp = gpar(fontface = "italic"),
+        row_order = row_od,
+        width = unit(22, "cm"), height = unit(5, "cm"),
+        right_annotation = ha, top_annotation = ht,
+        border = TRUE, rect_gp = gpar(col = "grey"))
+decorate_annotation("foo", slice = 1, {
+  grid.rect(x = 0, width = unit(10, "mm"), gp = gpar(fill = NA, col = NA), just = "left")
+  grid.text(paste("Level 0", collapse = "\n"), x = unit(5, "mm"), just = "centre", rot = 90,
+            gp = gpar(fontsize = 13, fontface = "bold"))})
+decorate_annotation("top", slice = 1, {
+  grid.rect(x = 0, width = unit(0.7, "mm"), gp = gpar(fill = NA, col = NA), just = "centre")})
+#dev.off()
+
+p2_l1 <- read.table("results/heatmaps/path2_level1.txt", sep = "\t", header=TRUE, row.names = 1)
+row_od = c("BIN1")
+p2_l1.mat <- as.matrix(p2_l1)
+ha = rowAnnotation(foo = anno_empty(border = TRUE))
+ht = HeatmapAnnotation(top = anno_empty(border = FALSE))
+#pdf("figures/heatmaps/p2_l1.pdf", width = 14, height = 10)
+Heatmap(p2_l1.mat, name = "log2(aFC)", #column_title = "eQTL SNPs",
+        col = colors, na_col = "white", #row_title = "shared eGenes",
+        cluster_rows = FALSE, cluster_columns = FALSE, row_names_side = "left",
+        column_names_side = "top", row_names_gp = gpar(fontface = "italic"),
+        row_order = row_od,
+        width = unit(10, "cm"), height = unit(3, "cm"),
+        right_annotation = ha, top_annotation = ht,
+        border = TRUE, rect_gp = gpar(col = "grey"))
+decorate_annotation("foo", slice = 1, {
+  grid.rect(x = 0, width = unit(10, "mm"), gp = gpar(fill = NA, col = NA), just = "left")
+  grid.text(paste("Level 1", collapse = "\n"), x = unit(5, "mm"), just = "centre", rot = 90,
+            gp = gpar(fontsize = 13, fontface = "bold"))})
+decorate_annotation("top", slice = 1, {
+  grid.rect(x = 0, width = unit(0.7, "mm"), gp = gpar(fill = NA, col = NA), just = "centre")})
+#dev.off()
+
+### cluster 3 - unknown
+cl4_l1_1 <- lsppin.df[grep(c('DMPK'), lsppin.df[, c("p1")]), ] # 9
+cl4_l1_2 <- lsppin.df[grep(c('SIX5'), lsppin.df[, c("p1")]), ] # 5
+
+cl4_l2_1 <- lsppin.df[grep(c('PLN'), lsppin.df[, c("p1")]), ] # 27
+cl4_l2_2 <- lsppin.df[grep(c('MBNL1'), lsppin.df[, c("p1")]), ] # 13
+cl4_l2_3 <- lsppin.df[grep(c('PPP1R12A'), lsppin.df[, c("p1")]), ] # 52
+cl4_l2_4 <- lsppin.df[grep(c('CELF1'), lsppin.df[, c("p1")]), ] # 11
+cl4_l2_5 <- lsppin.df[grep(c('MBNL2'), lsppin.df[, c("p1")]), ] # 3
+cl4_l2_6 <- lsppin.df[grep(c('HSPB2'), lsppin.df[, c("p1")]), ] # 18
+cl4_l2_7 <- lsppin.df[grep(c('YIPF7'), lsppin.df[, c("p1")]), ] # 6
+cl4_l2_8 <- lsppin.df[grep(c('CLCN1'), lsppin.df[, c("p1")]), ] # 7
+cl4_l2_9 <- lsppin.df[grep(c('EYA1'), lsppin.df[, c("p1")]), ] # 15
+cl4_l2_10 <- lsppin.df[grep(c('EYA2'), lsppin.df[, c("p1")]), ] # 13
+cl4_l2_11 <- lsppin.df[grep(c('EYA3'), lsppin.df[, c("p1")]), ] # 13
+cl4_l2_12 <- lsppin.df[grep(c('EYA4'), lsppin.df[, c("p1")]), ] # 14
+
+### cluster 4 - neuroactive ligand-receptor interaction and cholinergic synapse
+cl3_l1_1 <- lsppin.df[grep(c('CHRNA3'), lsppin.df[, c("p1")]), ] # 10
+cl3_l1_2 <- lsppin.df[grep(c('CHRNA5'), lsppin.df[, c("p1")]), ] # 4
+cl3_l1_3 <- lsppin.df[grep(c('IREB2'), lsppin.df[, c("p1")]), ] # 21
+cl3_l1_4 <- lsppin.df[grep(c('FAM13A'), lsppin.df[, c("p1")]), ] # 1
 
 ```
 
+### 8. [OPTIONAL] Bi-clustering analysis of COPD-associated eQTLs and eGenes from Multimorbid3D analysis.
+
+```{r bi-clustering}
+# Reading files for level 0
+l0_trait_snps.df <- read.csv("results/ecomorbidity/string_snp_disease_lung/level0_sig_trait_snps.txt", header = TRUE, sep = "\t", quote = "")
+colnames(l0_trait_snps.df) <- c("snp", "trait")
+
+l0_snp_gene.df <- read.csv("results/ecomorbidity/string_snp_disease_lung/level0_snp_gene.txt", header = TRUE, sep = "\t", quote = "")
+
+l0_merged = merge(x=l0_trait_snps.df, y=l0_snp_gene.df, by="snp")
+l0_merged.df <- l0_merged[!is.na(l0_merged$trait), ]
+
+#l0_merged = merge(x=l0_snp_gene.df, y=l0_trait_snps.df, by="snp", all.x=T)
+#l0_merged.df <- l0_merged[!is.na(l0_merged$trait), ]
+
+#convert file from rows to columns, add count of genes
+l0.df <- table(l0_merged.df[c("trait", "gene")]) #group trait and gene variables
+
+pheatmap(l0.df,
+          color = colorRampPalette (c ("white", "red")) (11), #keep "white" to make sure zeros are not coloured, change the number to maximum eqtls in your file. 
+          cluster_cols = T, # clusters gene columns
+          cluster_rows = T,
+          cellheight = 9, # specifies size of individual heatmap cells
+          cellwidth = 9,
+          fontsize = 8,
+          filename = "results/ecomorbidity/string_snp_disease_lung/heatmap_COPD_level0.pdf")
 
 
+# Reading files for level 1
+l1_trait_snps.df <- read.csv("results/ecomorbidity/string_snp_disease_lung/level1_sig_trait_snps.txt", header = TRUE, sep = "\t", quote = "")
+colnames(l1_trait_snps.df) <- c("snp", "trait")
+
+l1_snp_gene.df <- read.csv("results/ecomorbidity/string_snp_disease_lung/level1_snp_gene.txt", header = TRUE, sep = "\t", quote = "")
+
+l1_merged = merge(x=l1_trait_snps.df, y=l1_snp_gene.df, by="snp", all=T)
+l1_merged.df <- l1_merged[!is.na(l1_merged$trait), ]
+
+#convert file from rows to columns, add count of genes
+l1.df <- table(l1_merged.df[c("trait", "gene")]) #group trait and gene variables
+
+pheatmap(l1.df,
+          color = colorRampPalette (c ("white", "red")) (11), #keep "white" to make sure zeros are not coloured, change the number to maximum eqtls in your file. 
+          cluster_cols = T, # clusters gene columns
+          cluster_rows = T,
+          cellheight = 9, # specifies size of individual heatmap cells
+          cellwidth = 9,
+          fontsize = 8,
+          filename = "results/ecomorbidity/string_snp_disease_lung/heatmap_COPD_level1.pdf")
+
+
+# Reading files for level 2
+l2_trait_snps.df <- read.csv("results/ecomorbidity/string_snp_disease_lung/level2_sig_trait_snps.txt", header = TRUE, sep = "\t", quote = "")
+colnames(l2_trait_snps.df) <- c("snp", "trait")
+
+l2_snp_gene.df <- read.csv("results/ecomorbidity/string_snp_disease_lung/level2_snp_gene.txt", header = TRUE, sep = "\t", quote = "")
+
+l2_merged = merge(x=l2_trait_snps.df, y=l2_snp_gene.df, by="snp", all=T)
+l2_merged.df <- l2_merged[!is.na(l2_merged$trait), ]
+
+#convert file from rows to columns, add count of genes
+l2.df <- table(l2_merged.df[c("trait", "gene")]) #group trait and gene variables
+
+pheatmap(l2.df,
+          color = colorRampPalette (c ("white", "red")) (11), #keep "white" to make sure zeros are not coloured, change the number to maximum eqtls in your file. 
+          cluster_cols = T, # clusters gene columns
+          cluster_rows = T,
+          cellheight = 9, # specifies size of individual heatmap cells
+          cellwidth = 9,
+          fontsize = 8,
+          filename = "results/ecomorbidity/string_snp_disease_lung/heatmap_COPD_level2.pdf")
+
+
+# Reading files for level 3
+l3_trait_snps.df <- read.csv("results/ecomorbidity/string_snp_disease_lung/level3_sig_trait_snps.txt", header = TRUE, sep = "\t", quote = "")
+colnames(l3_trait_snps.df) <- c("snp", "trait")
+
+l3_snp_gene.df <- read.csv("results/ecomorbidity/string_snp_disease_lung/level3_snp_gene.txt", header = TRUE, sep = "\t", quote = "")
+
+l3_merged = merge(x=l3_trait_snps.df, y=l3_snp_gene.df, by="snp", all=T)
+l3_merged.df <- l3_merged[!is.na(l3_merged$trait), ]
+
+#convert file from rows to columns, add count of genes
+l3.df <- table(l3_merged.df[c("trait", "gene")]) #group trait and gene variables
+
+pheatmap(l3.df,
+          color = colorRampPalette (c ("white", "red")) (11), #keep "white" to make sure zeros are not coloured, change the number to maximum eqtls in your file. 
+          cluster_cols = T, # clusters gene columns
+          cluster_rows = T,
+          cellheight = 9, # specifies size of individual heatmap cells
+          cellwidth = 9,
+          fontsize = 8,
+          filename = "results/ecomorbidity/string_snp_disease_lung/heatmap_COPD_level3.pdf")
+
+
+# Reading files for level 4
+l4_trait_snps.df <- read.csv("results/ecomorbidity/string_snp_disease_lung/level4_sig_trait_snps.txt", header = TRUE, sep = "\t", quote = "")
+colnames(l4_trait_snps.df) <- c("snp", "trait")
+
+l4_snp_gene.df <- read.csv("results/ecomorbidity/string_snp_disease_lung/level4_snp_gene.txt", header = TRUE, sep = "\t", quote = "")
+
+l4_merged = merge(x=l4_trait_snps.df, y=l4_snp_gene.df, by="snp", all=T)
+l4_merged.df <- l4_merged[!is.na(l4_merged$trait), ]
+
+#convert file from rows to columns, add count of genes
+l4.df <- table(l4_merged.df[c("trait", "gene")]) #group trait and gene variables
+
+pheatmap(l4.df,
+          color = colorRampPalette (c ("white", "red")) (11), #keep "white" to make sure zeros are not coloured, change the number to maximum eqtls in your file. 
+          cluster_cols = T, # clusters gene columns
+          cluster_rows = T,
+          cellheight = 9, # specifies size of individual heatmap cells
+          cellwidth = 9,
+          fontsize = 8,
+          filename = "results/ecomorbidity/string_snp_disease_lung/heatmap_COPD_level4.pdf")
+```
