@@ -38,9 +38,9 @@ Python (version 3.6.9), R (version 4.0.2) and RStudio (version 1.2.5033) were us
 
 First, we run CoDeS3D pipeline to get COPD-associated spatial regulatory interactions across lung tissue (using GTEx lung eQTL data and Hi-C libraries for primary lung cells): `python codes3d/codes3d.py -s data/snps/263_copd_snps_5E-8.txt -o results/codes3d/lung -n Lung_cells_Schmitt2016 -t Lung`.
 
-### 1. Construction of the entire lung-specific gene regulatory map (GRN).
+## 1. Construction of the entire lung-specific gene regulatory map (GRN).
 
-## 1.1. Percentage of spatial lung-specific eQTL SNPs and non-eQTL SNPs among all variants (genotyped from lung samples obtained from GTEx v8).
+### 1.1. Percentage of spatial lung-specific eQTL SNPs and non-eQTL SNPs among all variants (genotyped from lung samples obtained from GTEx v8).
 
 ```{r lung_map_eqtls_vs_noneqtls}
 ### Getting number of SNPs vs eQTLs in lung across the entire genome
@@ -60,7 +60,7 @@ ggplot(lung.map.genome, aes(x = "", y = percentage, fill = snps)) +
 #dev.off()
 ```
 
-## 1.2. Percentage of genes spatially regulated in the lung among all genes from GTEx v8.
+### 1.2. Percentage of genes spatially regulated in the lung among all genes from GTEx v8.
 
 ```{r lung_map_egenes}
 ### Getting number of eGenes
@@ -80,7 +80,7 @@ ggplot(lung.map.genes, aes(x = "", y = percentage, fill = genes)) +
 #dev.off()
 ```
 
-## 1.3. Mean, median, and standard deviation of number of eQTLs per gene grouped by interaction type.
+### 1.3. Mean, median, and standard deviation of number of eQTLs per gene grouped by interaction type.
 
 ```{r lung_eqtls_per_gene_by_interaction_type}
 ### reading lung-specific GRN
@@ -150,7 +150,7 @@ violin_eqtls_per_gene
 #dev.off()
 ```
 
-## 1.4. Mean, median, and standard deviation of eQTLs per gene expression grouped by interaction type.
+### 1.4. Mean, median, and standard deviation of eQTLs per gene expression grouped by interaction type.
 
 ```{r lung_eqtls_per_gene_expression_by_interaction_type}
 ### reading GTEx lung v8
@@ -221,7 +221,9 @@ violin_expression
 #dev.off()
 ```
 
-## 1.5. Correlation analysis of the number of cis-, trans-intrachromosomal and trans-interchromosomal eQTL-eGene interactions and all variants (genotyped from lung samples obtained from GTEx v8) across different chromosomes in lung-specific regulatory map. The file "GTEx_Analysis_2017-06-05_v8_WholeGenomeSeq_838Indiv_Analysis_Freeze.lookup_table_short_version.txt.gz" is available by request only.
+### 1.5. Correlation analysis.
+
+Correlation analysis of the number of cis-, trans-intrachromosomal and trans-interchromosomal eQTL-eGene interactions and all variants (genotyped from lung samples obtained from GTEx v8) across different chromosomes in lung-specific regulatory map. The file "GTEx_Analysis_2017-06-05_v8_WholeGenomeSeq_838Indiv_Analysis_Freeze.lookup_table_short_version.txt.gz" is available by request only.
 
 ```{r lung_map_correlation_analysis}
 # getting number of SNPs per chromosome
@@ -308,7 +310,7 @@ corr_gg
 #dev.off()
 ```
 
-### 2. Construction of COPD-associated lung-specific gene regulatory map (GRN).
+## 2. Construction of COPD-associated lung-specific gene regulatory map (GRN).
 
 ```{r copd_codes3d_results}
 ### Getting number of COPD-associated GWAS snps
@@ -327,7 +329,7 @@ sp_lung_egenes <- unique(sp_lung$gene) # 107
 #writeLines(sp_lung_egenes, con = "results/codes3d/lung/copd_lung_egenes.txt", sep = "\n")
 ```
 
-## 2.1 Percentage of spatial eQTL SNPs and non-eQTL SNPs across lung.
+### 2.1 Percentage of spatial eQTL SNPs and non-eQTL SNPs across lung.
 
 ```{r spatial_eqtl_vs_non-eQTL, fig.width=5, fig.height=7}
 # getting eqtls vs non-eqtls in lung
@@ -359,7 +361,7 @@ ggplot(copd.snp.lung, aes(x = factor(snps, level=c("non-eQTL","eQTL")), y = perc
 #dev.off()
 ```
 
-## 2.2. Functional annotation of eQTLs associated with COPD.
+### 2.2. Functional annotation of eQTLs associated with COPD.
 
 We used [wANNOVAR tool](http://wannovar.wglab.org/) to obtain information about the locus eQTLs tagged (9 June 2021). First, we extracted the funnctional annotation for COPD-associated eQTLs: `cut -f1,2,3,6,132 results/wannovar/query.output.genome_summary.txt | sort -u > results/wannovar/copd_fun_snp_ann.txt`
 
@@ -446,7 +448,7 @@ ggplot(lung_eqtls.df, aes(x = annotation, y = percent, fill = "#009444")) +
 #dev.off()
 ```
 
-## 2.3. Number of eGenes per eQTL SNP.
+### 2.3. Number of eGenes per eQTL SNP.
 
 ```{r genes_per_eqtl}
 # getting the number of eGenes per eQTL SNP
@@ -480,7 +482,7 @@ ggplot(copd.snps.freq, aes(x = factor(snps, level=c("2","8", "26", "67")), y = g
 #dev.off()
 ```
 
-## 2.4. Percentage of spatial cis-, trans-intrachromosomal and trans-interchromosomal eQTL-eGene interactions.
+### 2.4. Percentage of spatial cis-, trans-intrachromosomal and trans-interchromosomal eQTL-eGene interactions.
 
 ```{r cis_vs_trans, fig.width=5, fig.height=7}
 # reading significant spatial interactions in lung
@@ -519,7 +521,7 @@ ggplot(copd.snp.lung, aes(x = factor(interactions,
 #dev.off()
 ```
 
-## 2.5. Percentage of protein-coding genes, non-coding RNA genes and pseudogenes.
+### 2.5. Percentage of protein-coding genes, non-coding RNA genes and pseudogenes.
 
 ```{r gene_types, fig.width=5, fig.height=7}
 # getting spatially regulated genes in lung
@@ -557,7 +559,7 @@ ggplot(copd.gene.lung, aes(x = factor(gene_types,
 #dev.off()
 ```
 
-### 3. Construction of lung-specific protein-protein interaction network (LSPPIN).
+## 3. Construction of lung-specific protein-protein interaction network (LSPPIN).
 
 The STRING PPI network (version 11.5, protein.links.full.v11.0.txt.gz) was downloaded from [STRING website](https://string-db.org/cgi/download?sessionId=bBkmARm05QYT). We extracted only human PPIs with a combined score ≥ 700 between proteins:
 `zgrep ^"9606\." protein.links.full.v11.5.txt.gz | awk '($16 >= 700) { print $1, $2, $16 }' > human_PPIs.full.v11.5_700.txt`  
@@ -580,7 +582,7 @@ Overall, we extracted `r pander(nrow(PPI_700))` PPIs between a total of `r pande
 
 Ensembl protein identifiers were mapped to Ensembl gene identifiers.
 
-```{r protein_ID_mapping}
+```{r protein_IDs}
 # reading lung-specific gene regulatory network (GRN) data
 lung_GRN_genes <- read.table(gzfile("results/lung_specific_GRN/lung_specific_GRN_genes.txt.gz")) # 15,855 genes
 colnames(lung_GRN_genes) <- c("gene_id", "gene_name")
@@ -649,7 +651,7 @@ create_lsppi <- function(ppi, dict){
 lsppin.df <- read.table(gzfile("results/string/LSPPIN.txt.gz"), header = TRUE, sep = "\t")
 ```
 
-## 3.1. Number of human protein-protein interactions (PPI) in the STRING PPI network and lung-specific PPI network.
+### 3.1. Number of human protein-protein interactions (PPI) in the STRING PPI network and lung-specific PPI network.
 
 ```{r ppis}
 # getting the number of human PPIs in STRING and LSPPIN (with combined score 0.7).
@@ -677,7 +679,7 @@ ggplot(lung.map.ppis, aes(x = "", y = percentage, fill = ppis)) +
 #dev.off()
 ```
 
-## 3.2. Number of unique human proteins in the STRING PPI network and the lung-specific PPI network.
+### 3.2. Number of unique human proteins in the STRING PPI network and the lung-specific PPI network.
 
 ```{r proteins}
 # getting the number per chromosome
@@ -700,7 +702,7 @@ ggplot(lung.map.p, aes(x = "", y = percentage, fill = ppis)) +
 #dev.off()
 ```
 
-### 4. Construction of COPD-associated LSPPIN.
+## 4. Construction of COPD-associated LSPPIN.
 
 To build COPD-specific LSPPIN, only interactions between COPD-associated genes we extracted from LSPPIN.
 
@@ -714,7 +716,7 @@ copd_l_unique_proteins <- unique(c(copd_lsppin.df$p1, copd_lsppin.df$p2)) # 23 p
 
 The resulting COPD-associated LSPPIN contained `r pander(nrow(copd_lsppin.df))` PPIs between `r pander(length(copd_l_unique_proteins))` unique proteins in the lung.
 
-## 4.1. Cluster analysis of the identified COPD-associated lung-specific PPIs.
+### 4.1. Cluster analysis of the identified COPD-associated lung-specific PPIs.
 
 The Louvain clustering algorithm was applied to identify COPD-specific clusters of functionally related proteins within the LSPPIN.
 
@@ -744,7 +746,7 @@ plot(copd_graph, edge.width=2.5, edge.color="lightgray",
 #dev.off() 
 ```
 
-## 4.2. Pathway analysis of the COPD-associated genes within the LSPPIN clusters.
+### 4.2. Pathway analysis of the COPD-associated genes within the LSPPIN clusters.
 
 Pathway analysis was performed using the g:GOSt module of the g:Profiler tool. The significance level was determined using Benjamini-Hochberg algorithm (FDR < 0.05) (7 April 2022). Uncomment the lines below to query g:GOSt.
 
@@ -923,11 +925,11 @@ ggplot(copd_lung_go_cc_top10, aes(x=factor(term_name, levels = rev(levels(factor
 #dev.off()
 ```
 
-### 5. Identification of co-occuring conditions using multimorbid3D.
+## 5. Identification of co-occuring conditions using multimorbid3D.
 
-## 5.1. Identification of potential co-occuring conditions for COPD.
+### 5.1. Identification of potential co-occuring conditions for COPD.
 
-```{r copd_multimorbidity, fig.width=7, fig.height=7}
+```{r copd_multimorbidity, fig.width=15, fig.height=12}
 copd_lung_string_multm <-read.table(gzfile("results/multimorbid3d/copd/significant_enrichment_bootstrap.txt.gz"), header = TRUE, sep = "\t", quote="", encoding="UTF-8")
 
 #pdf("figures/multimorbidity/copd_lung_string_multimorbidiry.pdf", width = 9, height = 11)
@@ -947,9 +949,9 @@ s_gg
 #dev.off()
 ```
 
-## 5.2. Identification of potential co-occuring conditions for CAD and UD.
+### 5.2. Identification of potential co-occuring conditions for CAD and UD.
 
-```{r cad_and_ud_multimorbidity, fig.width=7, fig.height=7}
+```{r cad_and_ud_multimorbidity, fig.width=15, fig.height=12}
 cad_lung_string_multm <- read.table(gzfile("results/multimorbid3d/cad/significant_enrichment_bootstrap.txt.gz"), header = TRUE, sep = "\t", quote="", encoding="UTF-8")
 ud_lung_string_multm <- read.table(gzfile("results/multimorbid3d/ud/significant_enrichment_bootstrap.txt.gz"), header = TRUE, sep = "\t", quote="", encoding="UTF-8")
 
@@ -986,9 +988,9 @@ ud_gg
 #dev.off()
 ```
 
-### 6. Examples of PPI clusters interacting with proteins on levels 1, 2, 3 and 4.
+## 6. Examples of PPI clusters interacting with proteins on levels 0 and 1.
 
-```{r multimorbidity_examples}
+```{r multimorbidity_examples, fig.width=10, fig.height=7}
 lsppin.df <- read.table(gzfile("results/string/LSPPIN.txt.gz"), header = TRUE, sep = "\t")
 ### cluster 1 - sulfur rely system and folate biosynthesis
 cl1_l1_1 <- lsppin.df[grep(c('NUPR1'), lsppin.df[, c("p1")]), ] # 4
