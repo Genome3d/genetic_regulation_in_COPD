@@ -221,43 +221,41 @@ violin_expression
 #dev.off()
 ```
 
-## 1.7. Correlation analysis of the number of cis-, trans-intrachromosomal and trans-interchromosomal eQTL-eGene interactions and all variants (genotyped from lung samples obtained from GTEx v8) across different chromosomes in lung-specific regulatory map.
+## 1.5. Correlation analysis of the number of cis-, trans-intrachromosomal and trans-interchromosomal eQTL-eGene interactions and all variants (genotyped from lung samples obtained from GTEx v8) across different chromosomes in lung-specific regulatory map. The file "GTEx_Analysis_2017-06-05_v8_WholeGenomeSeq_838Indiv_Analysis_Freeze.lookup_table_short_version.txt.gz" is available by request only.
 
 ```{r lung_map_correlation_analysis}
 # getting number of SNPs per chromosome
-gtex_snps <- vroom(file=gzfile("./data/GTEx_Analysis_2017-06-05_v8_WholeGenomeSeq_838Indiv_Analysis_Freeze.lookup_table_short_version.txt.gz"), delim ="\t")
+gtex_snps <- vroom(file="./data/GTEx_Analysis_2017-06-05_v8_WholeGenomeSeq_838Indiv_Analysis_Freeze.lookup_table_short_version.txt.gz", delim ="\t")
 
-#lung_map_chr1 <- read.table(file="./results/lung_specific_GRN/significant_eqtls_chr1.txt", header = TRUE, sep = "\t", quote="", encoding="UTF-8")
-#lung_map <- vroom(file=gzfile("./results/lung_specific_GRN/lung_grn_significant_eqtls.txt.gz"), delim="\t")
-lung_map_chr1 <- vroom(file="./results/lung_specific_GRN/significant_eqtls_chr1.txt", delim="\t", col_select = c(snp, snp_chr))
-lung_map_chr2 <- vroom(file="./results/lung_specific_GRN/significant_eqtls_chr2.txt", delim="\t", col_select = c(snp, snp_chr))
-lung_map_chr3 <- vroom(file="./results/lung_specific_GRN/significant_eqtls_chr3.txt", delim="\t", col_select = c(snp, snp_chr))
-lung_map_chr4 <- vroom(file="./results/lung_specific_GRN/significant_eqtls_chr4.txt", delim="\t", col_select = c(snp, snp_chr))
-lung_map_chr5 <- vroom(file="./results/lung_specific_GRN/significant_eqtls_chr5.txt", delim="\t", col_select = c(snp, snp_chr))
-lung_map_chr6 <- vroom(file="./results/lung_specific_GRN/significant_eqtls_chr6.txt", delim="\t", col_select = c(snp, snp_chr))
-lung_map_chr7 <- vroom(file="./results/lung_specific_GRN/significant_eqtls_chr7.txt", delim="\t", col_select = c(snp, snp_chr))
-lung_map_chr8 <- vroom(file="./results/lung_specific_GRN/significant_eqtls_chr8.txt", delim="\t", col_select = c(snp, snp_chr))
-lung_map_chr9 <- vroom(file="./results/lung_specific_GRN/significant_eqtls_chr9.txt", delim="\t", col_select = c(snp, snp_chr))
-lung_map_chr10 <- vroom(file="./results/lung_specific_GRN/significant_eqtls_chr10.txt", delim="\t", col_select = c(snp, snp_chr))
-lung_map_chr11 <- vroom(file="./results/lung_specific_GRN/significant_eqtls_chr11.txt", delim="\t", col_select = c(snp, snp_chr))
-lung_map_chr12 <- vroom(file="./results/lung_specific_GRN/significant_eqtls_chr12.txt", delim="\t", col_select = c(snp, snp_chr))
-lung_map_chr13 <- vroom(file="./results/lung_specific_GRN/significant_eqtls_chr13.txt", delim="\t", col_select = c(snp, snp_chr))
-lung_map_chr14 <- vroom(file="./results/lung_specific_GRN/significant_eqtls_chr14.txt", delim="\t", col_select = c(snp, snp_chr))
-lung_map_chr15 <- vroom(file="./results/lung_specific_GRN/significant_eqtls_chr15.txt", delim="\t", col_select = c(snp, snp_chr))
-lung_map_chr16 <- vroom(file="./results/lung_specific_GRN/significant_eqtls_chr16.txt", delim="\t", col_select = c(snp, snp_chr))
-lung_map_chr17 <- vroom(file="./results/lung_specific_GRN/significant_eqtls_chr17.txt", delim="\t", col_select = c(snp, snp_chr))
-lung_map_chr18 <- vroom(file="./results/lung_specific_GRN/significant_eqtls_chr18.txt", delim="\t", col_select = c(snp, snp_chr))
-lung_map_chr19 <- vroom(file="./results/lung_specific_GRN/significant_eqtls_chr19.txt", delim="\t", col_select = c(snp, snp_chr))
-lung_map_chr20 <- vroom(file="./results/lung_specific_GRN/significant_eqtls_chr20.txt", delim="\t", col_select = c(snp, snp_chr))
-lung_map_chr21 <- vroom(file="./results/lung_specific_GRN/significant_eqtls_chr21.txt", delim="\t", col_select = c(snp, snp_chr))
-lung_map_chr22 <- vroom(file="./results/lung_specific_GRN/significant_eqtls_chr22.txt", delim="\t", col_select = c(snp, snp_chr))
-lung_map_chrX <- vroom(file="./results/lung_specific_GRN/significant_eqtls_chrX.txt", delim="\t", col_select = c(snp, snp_chr))
+lung_map_chr1 <- vroom(file="./results/lung_specific_GRN/significant_eqtls_chr1.txt.gz", delim="\t", col_select = c(snp, snp_chr))
+lung_map_chr2 <- vroom(file="./results/lung_specific_GRN/significant_eqtls_chr2.txt.gz", delim="\t", col_select = c(snp, snp_chr))
+lung_map_chr3 <- vroom(file="./results/lung_specific_GRN/significant_eqtls_chr3.txt.gz", delim="\t", col_select = c(snp, snp_chr))
+lung_map_chr4 <- vroom(file="./results/lung_specific_GRN/significant_eqtls_chr4.txt.gz", delim="\t", col_select = c(snp, snp_chr))
+lung_map_chr5 <- vroom(file="./results/lung_specific_GRN/significant_eqtls_chr5.txt.gz", delim="\t", col_select = c(snp, snp_chr))
+lung_map_chr6 <- vroom(file="./results/lung_specific_GRN/significant_eqtls_chr6.txt.gz", delim="\t", col_select = c(snp, snp_chr))
+lung_map_chr7 <- vroom(file="./results/lung_specific_GRN/significant_eqtls_chr7.txt.gz", delim="\t", col_select = c(snp, snp_chr))
+lung_map_chr8 <- vroom(file="./results/lung_specific_GRN/significant_eqtls_chr8.txt.gz", delim="\t", col_select = c(snp, snp_chr))
+lung_map_chr9 <- vroom(file="./results/lung_specific_GRN/significant_eqtls_chr9.txt.gz", delim="\t", col_select = c(snp, snp_chr))
+lung_map_chr10 <- vroom(file="./results/lung_specific_GRN/significant_eqtls_chr10.txt.gz", delim="\t", col_select = c(snp, snp_chr))
+lung_map_chr11 <- vroom(file="./results/lung_specific_GRN/significant_eqtls_chr11.txt.gz", delim="\t", col_select = c(snp, snp_chr))
+lung_map_chr12 <- vroom(file="./results/lung_specific_GRN/significant_eqtls_chr12.txt.gz", delim="\t", col_select = c(snp, snp_chr))
+lung_map_chr13 <- vroom(file="./results/lung_specific_GRN/significant_eqtls_chr13.txt.gz", delim="\t", col_select = c(snp, snp_chr))
+lung_map_chr14 <- vroom(file="./results/lung_specific_GRN/significant_eqtls_chr14.txt.gz", delim="\t", col_select = c(snp, snp_chr))
+lung_map_chr15 <- vroom(file="./results/lung_specific_GRN/significant_eqtls_chr15.txt.gz", delim="\t", col_select = c(snp, snp_chr))
+lung_map_chr16 <- vroom(file="./results/lung_specific_GRN/significant_eqtls_chr16.txt.gz", delim="\t", col_select = c(snp, snp_chr))
+lung_map_chr17 <- vroom(file="./results/lung_specific_GRN/significant_eqtls_chr17.txt.gz", delim="\t", col_select = c(snp, snp_chr))
+lung_map_chr18 <- vroom(file="./results/lung_specific_GRN/significant_eqtls_chr18.txt.gz", delim="\t", col_select = c(snp, snp_chr))
+lung_map_chr19 <- vroom(file="./results/lung_specific_GRN/significant_eqtls_chr19.txt.gz", delim="\t", col_select = c(snp, snp_chr))
+lung_map_chr20 <- vroom(file="./results/lung_specific_GRN/significant_eqtls_chr20.txt.gz", delim="\t", col_select = c(snp, snp_chr))
+lung_map_chr21 <- vroom(file="./results/lung_specific_GRN/significant_eqtls_chr21.txt.gz", delim="\t", col_select = c(snp, snp_chr))
+lung_map_chr22 <- vroom(file="./results/lung_specific_GRN/significant_eqtls_chr22.txt.gz", delim="\t", col_select = c(snp, snp_chr))
+lung_map_chrX <- vroom(file="./results/lung_specific_GRN/significant_eqtls_chrX.txt.gz", delim="\t", col_select = c(snp, snp_chr))
 
-lung_map <- rbind(lung_map_chr1, lung_map_chr2, lung_map_chr3, lung_map_chr4, lung_map_chr5, lung_map_chr6,
-                  lung_map_chr7, lung_map_chr8, lung_map_chr9, lung_map_chr10, lung_map_chr11,
-                  lung_map_chr12, lung_map_chr13, lung_map_chr14, lung_map_chr15, lung_map_chr16,
-                  lung_map_chr17, lung_map_chr18, lung_map_chr19, lung_map_chr20, lung_map_chr21,
-                  lung_map_chr22, lung_map_chrX)
+lung_map <- rbind(lung_map_chr1, lung_map_chr2, lung_map_chr3, lung_map_chr4, lung_map_chr5,
+                  lung_map_chr6, lung_map_chr7, lung_map_chr8, lung_map_chr9, lung_map_chr10,
+                  lung_map_chr11, lung_map_chr12, lung_map_chr13, lung_map_chr14,
+                  lung_map_chr15, lung_map_chr16, lung_map_chr17, lung_map_chr18, 
+                  lung_map_chr19, lung_map_chr20, lung_map_chr21, lung_map_chr22, lung_map_chrX)
 
 # counting the number of SNPs per chromosome (GTEx and lung-specific GRN)
 gtex_snps_count <- gtex_snps %>% count(chr)
