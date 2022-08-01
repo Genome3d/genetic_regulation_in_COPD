@@ -725,10 +725,10 @@ copd_l_links <- read.table(gzfile("results/string/COPD_LSPPIN_links.txt.gz"),
 copd_l_nodes <- read.table(gzfile("results/string/COPD_LSPPIN_nodes.txt.gz"), 
                            sep = "\t", header=TRUE)
 
-## Building COPD LSPPIN
+## building COPD LSPPIN
 copd_graph <- graph_from_data_frame(d=copd_l_links, vertices=copd_l_nodes, directed=F)
 
-# Louvain clustering
+# louvain clustering
 copd_lc <- cluster_louvain(copd_graph, weights=NA) #class(a_lc)
 #membership(a_lc)
 communities(copd_lc) # 9 clusters
@@ -795,7 +795,7 @@ c_3 <- communities(copd_lc)$'3' # to get gene names
 # cluster 4
 communities(copd_lc)[4] # to get gene names
 c_4 <- communities(copd_lc)$'4' # to get gene names
-#c_4_path <- query_kegg(c_4) # Uknown pathway
+#c_4_path <- query_kegg(c_4) # Unknown pathway
 
 # cluster 5
 communities(copd_lc)[5] # to get gene names
@@ -824,7 +824,7 @@ c_7 <- communities(copd_lc)$'7' # to get gene names
 # cluster 8
 communities(copd_lc)[8] # to get gene names
 c_8 <- communities(copd_lc)$'8' # to get gene names
-#c_8_path <- query_kegg(c_8) # Uknown pathway
+#c_8_path <- query_kegg(c_8) # Unknown pathway
 
 # cluster 9
 communities(copd_lc)[9] # to get gene names
@@ -835,7 +835,7 @@ c_9 <- communities(copd_lc)$'9' # to get gene names
 # write.table(c_9.df, file = "results/kegg/copd_LSPPIN_cluster9_kegg_fdr.txt", sep = "\t", col.names = TRUE, row.names=FALSE)
 ```
 
-### 5. Gene Ontology (GO) enrichment analysis of the COPD-associated genes within the LSPPIN clusters.
+### 4.3. Gene Ontology (GO) enrichment analysis of the COPD-associated genes within the LSPPIN clusters.
 
 GO analysis was performed using the g:GOSt module of the g:Profiler tool. The significance level was determined using Benjamini-Hochberg algorithm (FDR < 0.05) (7 April 2022).
 
