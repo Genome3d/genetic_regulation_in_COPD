@@ -928,8 +928,7 @@ ggplot(copd_lung_go_cc_top10, aes(x=factor(term_name, levels = rev(levels(factor
 ## 5.1. Identification of potential co-occuring conditions for COPD.
 
 ```{r copd_multimorbidity, fig.width=7, fig.height=7}
-copd_lung_string_multm <- read.table(gzfile("results/multimorbid3d/significant_enrichment_bootstrap.txt.gz"),
-                                     header = TRUE, sep = "\t", quote="", encoding="UTF-8")
+copd_lung_string_multm <-read.table(gzfile("results/multimorbid3d/copd/significant_enrichment_bootstrap.txt.gz"), header = TRUE, sep = "\t", quote="", encoding="UTF-8")
 
 #pdf("figures/multimorbidity/copd_lung_string_multimorbidiry.pdf", width = 9, height = 11)
 s_gg <- ggplot(copd_lung_string_multm, aes(x = level, y = trait)) +
@@ -941,30 +940,31 @@ s_gg <- ggplot(copd_lung_string_multm, aes(x = level, y = trait)) +
           axis.text.y = element_text(colour = "black", size = 8), 
           legend.text = element_text(size = 8, colour ="black"), 
           legend.title = element_text(size = 9, face = "bold"), 
-          panel.background = element_blank(), panel.border = element_rect(colour = "black", 
-                                                                          fill = NA, size = 1),
+          panel.background = element_blank(),
+          panel.border = element_rect(colour = "black", fill = NA, size = 1),
           legend.position = "right")
 s_gg
 #dev.off()
 ```
 
-## 6.2. Identification of potential multimorbid conditions for CAD and UD.
+## 5.2. Identification of potential co-occuring conditions for CAD and UD.
 
 ```{r cad_and_ud_multimorbidity, fig.width=7, fig.height=7}
-cad_lung_string_multm <- read.table("results/multimorbidity_spatial_cad_new/significant_enrichment_bootstrap.txt", header = TRUE, sep = "\t", quote="", encoding="UTF-8")
-ud_lung_string_multm <- read.table("results/multimorbidity_spatial_ud_new/significant_enrichment_bootstrap.txt", header = TRUE, sep = "\t", quote="", encoding="UTF-8")
+cad_lung_string_multm <- read.table(gzfile("results/multimorbid3d/cad/significant_enrichment_bootstrap.txt.gz"), header = TRUE, sep = "\t", quote="", encoding="UTF-8")
+ud_lung_string_multm <- read.table(gzfile("results/multimorbid3d/ud/significant_enrichment_bootstrap.txt.gz"), header = TRUE, sep = "\t", quote="", encoding="UTF-8")
 
 #pdf("figures/multimorbidity/cad_lung_string_multimorbidiry.pdf", width = 13, height = 11)
 cad_gg <- ggplot(cad_lung_string_multm, aes(x = level, y = trait)) +
   geom_point(aes(size = trait_eqtls, fill = adj_pval), alpha = 0.75, shape = 21) +
   labs( x = "", y = "", size = "Number of eQTLs", fill = "Adj p value") +
   theme(legend.key=element_blank(), 
-        axis.text.x = element_text(colour = "black", size = 8, angle = 90, vjust = 0.3, hjust = 1),
+        axis.text.x = element_text(colour = "black", size = 8, angle = 90, 
+                                   vjust = 0.3, hjust = 1),
         axis.text.y = element_text(colour = "black", size = 8), 
         legend.text = element_text(size = 8, colour ="black"), 
         legend.title = element_text(size = 9, face = "bold"), 
-        panel.background = element_blank(), panel.border = element_rect(colour = "black", 
-                                                                        fill = NA, size = 1),
+        panel.background = element_blank(),
+        panel.border = element_rect(colour = "black", fill = NA, size = 1),
         legend.position = "right")
 cad_gg
 #dev.off()
@@ -974,18 +974,19 @@ ud_gg <- ggplot(ud_lung_string_multm, aes(x = level, y = trait)) +
   geom_point(aes(size = trait_eqtls, fill = adj_pval), alpha = 0.75, shape = 21) +
   labs( x = "", y = "", size = "Number of eQTLs", fill = "Adj p value") +
   theme(legend.key=element_blank(), 
-        axis.text.x = element_text(colour = "black", size = 8, angle = 90, vjust = 0.3, hjust = 1),
+        axis.text.x = element_text(colour = "black", size = 8, angle = 90, 
+                                   vjust = 0.3, hjust = 1),
         axis.text.y = element_text(colour = "black", size = 8), 
         legend.text = element_text(size = 8, colour ="black"), 
         legend.title = element_text(size = 9, face = "bold"), 
-        panel.background = element_blank(), panel.border = element_rect(colour = "black", 
-                                                                        fill = NA, size = 1),
+        panel.background = element_blank(),
+        panel.border = element_rect(colour = "black", fill = NA, size = 1),
         legend.position = "right")
 ud_gg
 #dev.off()
 ```
 
-### 7. Examples of PPI clusters interacting with proteins on levels 1, 2, 3 and 4.
+### 6. Examples of PPI clusters interacting with proteins on levels 1, 2, 3 and 4.
 
 ```{r multimorbidity_examples}
 lsppin.df <- read.table(gzfile("results/string/LSPPIN.txt.gz"), header = TRUE, sep = "\t")
@@ -1104,144 +1105,4 @@ decorate_annotation("foo", slice = 1, {
 decorate_annotation("top", slice = 1, {
   grid.rect(x = 0, width = unit(0.7, "mm"), gp = gpar(fill = NA, col = NA), just = "centre")})
 #dev.off()
-
-### cluster 3 - unknown
-cl4_l1_1 <- lsppin.df[grep(c('DMPK'), lsppin.df[, c("p1")]), ] # 9
-cl4_l1_2 <- lsppin.df[grep(c('SIX5'), lsppin.df[, c("p1")]), ] # 5
-
-cl4_l2_1 <- lsppin.df[grep(c('PLN'), lsppin.df[, c("p1")]), ] # 27
-cl4_l2_2 <- lsppin.df[grep(c('MBNL1'), lsppin.df[, c("p1")]), ] # 13
-cl4_l2_3 <- lsppin.df[grep(c('PPP1R12A'), lsppin.df[, c("p1")]), ] # 52
-cl4_l2_4 <- lsppin.df[grep(c('CELF1'), lsppin.df[, c("p1")]), ] # 11
-cl4_l2_5 <- lsppin.df[grep(c('MBNL2'), lsppin.df[, c("p1")]), ] # 3
-cl4_l2_6 <- lsppin.df[grep(c('HSPB2'), lsppin.df[, c("p1")]), ] # 18
-cl4_l2_7 <- lsppin.df[grep(c('YIPF7'), lsppin.df[, c("p1")]), ] # 6
-cl4_l2_8 <- lsppin.df[grep(c('CLCN1'), lsppin.df[, c("p1")]), ] # 7
-cl4_l2_9 <- lsppin.df[grep(c('EYA1'), lsppin.df[, c("p1")]), ] # 15
-cl4_l2_10 <- lsppin.df[grep(c('EYA2'), lsppin.df[, c("p1")]), ] # 13
-cl4_l2_11 <- lsppin.df[grep(c('EYA3'), lsppin.df[, c("p1")]), ] # 13
-cl4_l2_12 <- lsppin.df[grep(c('EYA4'), lsppin.df[, c("p1")]), ] # 14
-
-### cluster 4 - neuroactive ligand-receptor interaction and cholinergic synapse
-cl3_l1_1 <- lsppin.df[grep(c('CHRNA3'), lsppin.df[, c("p1")]), ] # 10
-cl3_l1_2 <- lsppin.df[grep(c('CHRNA5'), lsppin.df[, c("p1")]), ] # 4
-cl3_l1_3 <- lsppin.df[grep(c('IREB2'), lsppin.df[, c("p1")]), ] # 21
-cl3_l1_4 <- lsppin.df[grep(c('FAM13A'), lsppin.df[, c("p1")]), ] # 1
-
-```
-
-### 8. [OPTIONAL] Bi-clustering analysis of COPD-associated eQTLs and eGenes from Multimorbid3D analysis.
-
-```{r bi-clustering}
-# Reading files for level 0
-l0_trait_snps.df <- read.csv("results/ecomorbidity/string_snp_disease_lung/level0_sig_trait_snps.txt", header = TRUE, sep = "\t", quote = "")
-colnames(l0_trait_snps.df) <- c("snp", "trait")
-
-l0_snp_gene.df <- read.csv("results/ecomorbidity/string_snp_disease_lung/level0_snp_gene.txt", header = TRUE, sep = "\t", quote = "")
-
-l0_merged = merge(x=l0_trait_snps.df, y=l0_snp_gene.df, by="snp")
-l0_merged.df <- l0_merged[!is.na(l0_merged$trait), ]
-
-#l0_merged = merge(x=l0_snp_gene.df, y=l0_trait_snps.df, by="snp", all.x=T)
-#l0_merged.df <- l0_merged[!is.na(l0_merged$trait), ]
-
-#convert file from rows to columns, add count of genes
-l0.df <- table(l0_merged.df[c("trait", "gene")]) #group trait and gene variables
-
-pheatmap(l0.df,
-          color = colorRampPalette (c ("white", "red")) (11), #keep "white" to make sure zeros are not coloured, change the number to maximum eqtls in your file. 
-          cluster_cols = T, # clusters gene columns
-          cluster_rows = T,
-          cellheight = 9, # specifies size of individual heatmap cells
-          cellwidth = 9,
-          fontsize = 8,
-          filename = "results/ecomorbidity/string_snp_disease_lung/heatmap_COPD_level0.pdf")
-
-
-# Reading files for level 1
-l1_trait_snps.df <- read.csv("results/ecomorbidity/string_snp_disease_lung/level1_sig_trait_snps.txt", header = TRUE, sep = "\t", quote = "")
-colnames(l1_trait_snps.df) <- c("snp", "trait")
-
-l1_snp_gene.df <- read.csv("results/ecomorbidity/string_snp_disease_lung/level1_snp_gene.txt", header = TRUE, sep = "\t", quote = "")
-
-l1_merged = merge(x=l1_trait_snps.df, y=l1_snp_gene.df, by="snp", all=T)
-l1_merged.df <- l1_merged[!is.na(l1_merged$trait), ]
-
-#convert file from rows to columns, add count of genes
-l1.df <- table(l1_merged.df[c("trait", "gene")]) #group trait and gene variables
-
-pheatmap(l1.df,
-          color = colorRampPalette (c ("white", "red")) (11), #keep "white" to make sure zeros are not coloured, change the number to maximum eqtls in your file. 
-          cluster_cols = T, # clusters gene columns
-          cluster_rows = T,
-          cellheight = 9, # specifies size of individual heatmap cells
-          cellwidth = 9,
-          fontsize = 8,
-          filename = "results/ecomorbidity/string_snp_disease_lung/heatmap_COPD_level1.pdf")
-
-
-# Reading files for level 2
-l2_trait_snps.df <- read.csv("results/ecomorbidity/string_snp_disease_lung/level2_sig_trait_snps.txt", header = TRUE, sep = "\t", quote = "")
-colnames(l2_trait_snps.df) <- c("snp", "trait")
-
-l2_snp_gene.df <- read.csv("results/ecomorbidity/string_snp_disease_lung/level2_snp_gene.txt", header = TRUE, sep = "\t", quote = "")
-
-l2_merged = merge(x=l2_trait_snps.df, y=l2_snp_gene.df, by="snp", all=T)
-l2_merged.df <- l2_merged[!is.na(l2_merged$trait), ]
-
-#convert file from rows to columns, add count of genes
-l2.df <- table(l2_merged.df[c("trait", "gene")]) #group trait and gene variables
-
-pheatmap(l2.df,
-          color = colorRampPalette (c ("white", "red")) (11), #keep "white" to make sure zeros are not coloured, change the number to maximum eqtls in your file. 
-          cluster_cols = T, # clusters gene columns
-          cluster_rows = T,
-          cellheight = 9, # specifies size of individual heatmap cells
-          cellwidth = 9,
-          fontsize = 8,
-          filename = "results/ecomorbidity/string_snp_disease_lung/heatmap_COPD_level2.pdf")
-
-
-# Reading files for level 3
-l3_trait_snps.df <- read.csv("results/ecomorbidity/string_snp_disease_lung/level3_sig_trait_snps.txt", header = TRUE, sep = "\t", quote = "")
-colnames(l3_trait_snps.df) <- c("snp", "trait")
-
-l3_snp_gene.df <- read.csv("results/ecomorbidity/string_snp_disease_lung/level3_snp_gene.txt", header = TRUE, sep = "\t", quote = "")
-
-l3_merged = merge(x=l3_trait_snps.df, y=l3_snp_gene.df, by="snp", all=T)
-l3_merged.df <- l3_merged[!is.na(l3_merged$trait), ]
-
-#convert file from rows to columns, add count of genes
-l3.df <- table(l3_merged.df[c("trait", "gene")]) #group trait and gene variables
-
-pheatmap(l3.df,
-          color = colorRampPalette (c ("white", "red")) (11), #keep "white" to make sure zeros are not coloured, change the number to maximum eqtls in your file. 
-          cluster_cols = T, # clusters gene columns
-          cluster_rows = T,
-          cellheight = 9, # specifies size of individual heatmap cells
-          cellwidth = 9,
-          fontsize = 8,
-          filename = "results/ecomorbidity/string_snp_disease_lung/heatmap_COPD_level3.pdf")
-
-
-# Reading files for level 4
-l4_trait_snps.df <- read.csv("results/ecomorbidity/string_snp_disease_lung/level4_sig_trait_snps.txt", header = TRUE, sep = "\t", quote = "")
-colnames(l4_trait_snps.df) <- c("snp", "trait")
-
-l4_snp_gene.df <- read.csv("results/ecomorbidity/string_snp_disease_lung/level4_snp_gene.txt", header = TRUE, sep = "\t", quote = "")
-
-l4_merged = merge(x=l4_trait_snps.df, y=l4_snp_gene.df, by="snp", all=T)
-l4_merged.df <- l4_merged[!is.na(l4_merged$trait), ]
-
-#convert file from rows to columns, add count of genes
-l4.df <- table(l4_merged.df[c("trait", "gene")]) #group trait and gene variables
-
-pheatmap(l4.df,
-          color = colorRampPalette (c ("white", "red")) (11), #keep "white" to make sure zeros are not coloured, change the number to maximum eqtls in your file. 
-          cluster_cols = T, # clusters gene columns
-          cluster_rows = T,
-          cellheight = 9, # specifies size of individual heatmap cells
-          cellwidth = 9,
-          fontsize = 8,
-          filename = "results/ecomorbidity/string_snp_disease_lung/heatmap_COPD_level4.pdf")
 ```
