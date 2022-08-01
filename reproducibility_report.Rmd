@@ -154,33 +154,36 @@ violin_eqtls_per_gene
 
 ```{r lung_eqtls_per_gene_expression_by_interaction_type}
 ### reading GTEx lung v8
-lung_tpm <- vroom(file=gzfile("./data/GTEx_Analysis_2017-06-05_v8_RNASeQCv1.1.9_gene_median_tpm.gct.gz"), delim = "\t", skip=2, col_select = c("Description", "Lung", "Name"))
-lung_tpm <- lung_tpm %>% rename("gencode_id"= Name)
+lung_tpm <- vroom(file="./data/GTEx_Analysis_2017-06-05_v8_RNASeQCv1.1.9_gene_median_tpm.gct.gz", delim = "\t", skip=2, col_select = c("Description", "Lung", "gencode_id"= Name))
 
-lung_map <- vroom(file="./results/lung_specific_GRN/lung_grn_significant_eqtls.txt", delim="\t")
+lung_map <- vroom(file="./results/lung_specific_GRN/lung_grn_significant_eqtls.txt.gz",
+                  delim="\t")
 lung_map.df <- distinct(lung_map[,c("snp", "gencode_id", "interaction_type")])
 lung_map_cis <- subset(lung_map.df, interaction_type=='Cis')
 lung_map_intra <- subset(lung_map.df, interaction_type=='Trans-intrachromosomal')
 lung_map_inter <- subset(lung_map.df, interaction_type=='Trans-interchromosomal')
 
-lung_map_cis.freq <- count(distinct(lung_map_cis[,c("snp", "gencode_id")]), gencode_id) %>% 
-  mutate("interaction_type"="Cis")
-lung_map_intra.freq <- count(distinct(lung_map_intra[,c("snp", "gencode_id")]), gencode_id) %>% 
-  mutate("interaction_type"="Trans-intrachromosomal")
-lung_map_inter.freq <- count(distinct(lung_map_inter[,c("snp", "gencode_id")]), gencode_id) %>% 
-  mutate("interaction_type"="Trans-interchromosomal")
+lung_map_cis.freq <- count(distinct(lung_map_cis[,c("snp", "gencode_id")]), gencode_id) %>%
+    mutate("interaction_type"="Cis")
+lung_map_intra.freq <- count(distinct(lung_map_intra[,c("snp", "gencode_id")]), gencode_id) %>%
+    mutate("interaction_type"="Trans-intrachromosomal")
+lung_map_inter.freq <- count(distinct(lung_map_inter[,c("snp", "gencode_id")]), gencode_id) %>%
+    mutate("interaction_type"="Trans-interchromosomal")
 
 lung_map_combined <- rbind(lung_map_cis.freq, lung_map_intra.freq, lung_map_inter.freq)
 lung_map_combined <- lung_map_combined %>% 
-  mutate(interaction_type=factor(interaction_type, 
-                                 levels=c("Cis", "Trans-intrachromosomal","Trans-interchromosomal")))
+    mutate(interaction_type=factor(interaction_type, 
+                                   levels=c("Cis",
+                                            "Trans-intrachromosomal",
+                                            "Trans-interchromosomal")))
 
 lung_map_combined_tpm <- merge(lung_map_combined, lung_tpm, by= "gencode_id")
 lung_map_combined_tpm.df <- lung_map_combined_tpm %>% 
-  rename("gene"="Description", "tpm"="Lung") %>% 
-  relocate(gene, gencode_id, tpm, interaction_type) %>% 
-  mutate(interaction_type=factor(interaction_type, 
-                                 levels=c("Cis", "Trans-intrachromosomal","Trans-interchromosomal")))
+    relocate("gene"=Description, gencode_id, "tpm"=Lung, interaction_type) %>%
+    mutate(interaction_type=factor(interaction_type, 
+                                   levels=c("Cis",
+                                            "Trans-intrachromosomal",
+                                            "Trans-interchromosomal")))
 # computing mean
 lung_map_combined_tpm.df %>% group_by(interaction_type) %>% summarise(mean = mean(log10(tpm+1)))
 lung_map_combined_tpm.df %>% group_by(interaction_type) %>% summarise(mean = mean(tpm))
@@ -195,25 +198,25 @@ tpm_expression <- list(c("Cis", "Trans-intrachromosomal"),
 #pdf("figures/lung_eqtl_map/violin_expression.pdf", width = 12, height = 8)
 violin_expression <- ggplot(lung_map_combined_tpm.df,
                             aes(x=interaction_type, y=log10(tpm+1), fill=interaction_type)) +
-  geom_violin(trim=T) + 
-  stat_summary(fun = "median", geom = "point", shape = 3, size = 4, color = "white") +
-  stat_summary(fun.data=mean_sdl, fun.args = list(mult = 1), 
-               geom="pointrange", color="red", shape=3, size=0.85) + 
-  scale_x_discrete("Interaction type") +
-  scale_y_continuous("log10(TPM+1)", expand = c(0,0)) +
-  scale_fill_manual(values=c("#009444", "#009444", "#009444")) +
-  theme_classic() +
-  theme(plot.title = element_blank(),
-        axis.title.x = element_blank(),
-        legend.text=element_text(size=20),
-        legend.title=element_blank(),
-        legend.position = "none",
-        #legend.direction = "horizontal",
-        axis.text=element_text(size=22, colour = "black"),
-        axis.title=element_text(size=24, colour = "black"),
-        strip.text.x = element_text(size = 19, colour = "black")) + 
-  #theme(axis.text.x= element_text(size=12)) +
-  stat_compare_means(comparisons = tpm_expression, method = "t.test", label = "p.signif")
+    geom_violin(trim=T) + 
+    stat_summary(fun = "median", geom = "point", shape = 3, size = 4, color = "white") +
+    stat_summary(fun.data=mean_sdl, fun.args = list(mult = 1), 
+                 geom="pointrange", color="red", shape=3, size=0.85) +
+    scale_x_discrete("Interaction type") +
+    scale_y_continuous("log10(TPM+1)", expand = c(0,0)) +
+    scale_fill_manual(values=c("#009444", "#009444", "#009444")) +
+    theme_classic() +
+    theme(plot.title = element_blank(),
+          axis.title.x = element_blank(),
+          legend.text=element_text(size=20),
+          legend.title=element_blank(),
+          legend.position = "none",
+          #legend.direction = "horizontal",
+          axis.text=element_text(size=22, colour = "black"),
+          axis.title=element_text(size=24, colour = "black"),
+          strip.text.x = element_text(size = 19, colour = "black")) + 
+    #theme(axis.text.x= element_text(size=12)) +
+    stat_compare_means(comparisons = tpm_expression, method = "t.test", label = "p.signif")
 violin_expression
 #dev.off()
 ```
