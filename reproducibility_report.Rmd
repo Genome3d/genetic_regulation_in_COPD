@@ -856,9 +856,11 @@ query_go <- function(genes){
 }
 
 # COPD-associated eGenes
-copd_lung_go <- query_go(sp_lung_egenes); copd_lung_gos.df <- apply(copd_lung_go, 2, as.character)
+copd_lung_go <- query_go(sp_lung_egenes)
+copd_lung_gos.df <- apply(copd_lung_go, 2, as.character)
 #write.table(copd_lung_gos.df, file = "results/go/copd_lung_all_gos_fdr.txt", sep = "\t", col.names = TRUE, row.names=FALSE)
-copd_lung_gos.df <- read.table("results/go/copd_lung_all_gos_fdr.txt", header = TRUE, sep="\t")
+copd_lung_gos.df <- read.table(gzfile("results/go/copd_lung_all_gos_fdr.txt.gz"), 
+                               header = TRUE, sep="\t")
 
 # Extraction top 10 terms for biological process
 copd_lung_go_bp <- copd_lung_gos.df[grep('GO:BP', copd_lung_gos.df[, "source"]), ]
@@ -921,12 +923,13 @@ ggplot(copd_lung_go_cc_top10, aes(x=factor(term_name, levels = rev(levels(factor
 #dev.off()
 ```
 
-### 6. Multimorbidity analysis using multimorbid3D.
+### 5. Identification of co-occuring conditions using multimorbid3D.
 
-## 6.1. Identification of potential multimorbid conditions for COPD.
+## 5.1. Identification of potential co-occuring conditions for COPD.
 
 ```{r copd_multimorbidity, fig.width=7, fig.height=7}
-copd_lung_string_multm <- read.table("results/multimorbidity_spatial/significant_enrichment_bootstrap.txt", header = TRUE, sep = "\t", quote="", encoding="UTF-8")
+copd_lung_string_multm <- read.table(gzfile("results/multimorbid3d/significant_enrichment_bootstrap.txt.gz"),
+                                     header = TRUE, sep = "\t", quote="", encoding="UTF-8")
 
 #pdf("figures/multimorbidity/copd_lung_string_multimorbidiry.pdf", width = 9, height = 11)
 s_gg <- ggplot(copd_lung_string_multm, aes(x = level, y = trait)) +
