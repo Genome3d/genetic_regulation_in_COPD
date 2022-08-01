@@ -276,7 +276,8 @@ lung_map_count_merged <- merge(lung_map_eqtls_count, gtex_snps_count, by=1, all=
 #pdf("figures/lung_eqtl_map/cor_lung_map_cis_per_chromosome.pdf", width = 13, height = 6)
 options(scipen = 6)
 corr_gg <- ggplot(lung_map_count_merged, aes(x = snps_number, y = eQTL_eGene_interactions)) +
-  geom_smooth(fullrange = TRUE, method = lm, alpha = 0.2, level = 0.95, color = "red", fill = "#009444") +
+  geom_smooth(fullrange = TRUE, method = lm, alpha = 0.2, level = 0.95, color = "red", 
+              fill = "#009444") +
   geom_count(aes(size = geneDensity)) +
   geom_text_repel(aes(label = Chromosome),
                   min.segment.length = 0,
@@ -307,7 +308,7 @@ corr_gg
 #dev.off()
 ```
 
-## 1.8 Number of human protein-protein interactions (PPI) in the STRING PPI network and lung-specific PPI network.
+## 1.6. Number of human protein-protein interactions (PPI) in the STRING PPI network and lung-specific PPI network.
 
 ```{r ppis}
 # getting the number of human PPIs in STRING and LSPPIN (with combined score 0.7).
