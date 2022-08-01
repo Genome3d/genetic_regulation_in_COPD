@@ -374,29 +374,6 @@ df_gg
 #dev.off()
 ```
 
-## 1.9. Number of unique human proteins in the STRING PPI network and the lung-specific PPI network.
-
-```{r proteins}
-# getting the number per chromosome
-string_proteins <- unique(c(string_700$V1, string_700$V2)) # 16,814
-lsspin_proteins <- unique(c(lsppin_700$V1, lsppin_700$V2)) # 10,188
-
-lung.map.p <- data.frame(
-  ppis = rep(c("LSPPIN","STRING")),
-  number = c(10188, (16814-10188)),
-  percentage = c(round((10188/16814)*100, 2),
-                 round(((16814-10188)/16814)*100, 2)))
-
-#pdf("figures/lung_eqtl_map/lung_map_proteins.pdf", width = 9, height = 9)
-ggplot(lung.map.p, aes(x = "", y = percentage, fill = ppis)) +
-  geom_bar(width = 1, stat = "identity", fill = c("#009444", "darkgrey"), color = "white") +
-  coord_polar("y", start = 0) +
-  #geom_text(aes(y = percentage, label = snps), color = "white")+
-  #scale_fill_manual(values = mycols) +
-  theme_void()
-#dev.off()
-```
-
 ### 2. Construction of COPD-associated lung-specific gene regulatory map (GRN).
 
 ```{r copd_codes3d_results}
@@ -404,7 +381,8 @@ ggplot(lung.map.p, aes(x = "", y = percentage, fill = ppis)) +
 snps <- readLines("data/snps/263_COPD_snps_5E-8.txt") # 263
 
 ### Reading significant spatial interactions in lung
-sp_lung <- read.table("results/codes3d/lung/significant_eqtls.txt", header = TRUE, sep = "\t") # 151
+sp_lung <- read.table(gzfile("results/codes3d/lung/significant_eqtls.txt.gz"), 
+                      header = TRUE, sep = "\t") # 151
 
 ### Getting spatial eQTLs in lung
 sp_lung_eqtls <- unique(sp_lung$snp) # 103
@@ -571,10 +549,11 @@ ggplot(copd.snps.freq, aes(x = factor(snps, level=c("2","8", "26", "67")), y = g
 ## 2.4. Percentage of spatial cis-, trans-intrachromosomal and trans-interchromosomal eQTL-eGene interactions.
 
 ```{r cis_vs_trans, fig.width=5, fig.height=7}
-### Reading significant spatial interactions in lung
-sp_lung <- read.table("results/codes3d/lung/significant_eqtls.txt", header = TRUE, sep = "\t") #151
+# reading significant spatial interactions in lung
+sp_lung <- read.table(gzfile("results/codes3d/lung/significant_eqtls.txt.gz"), 
+                      header = TRUE, sep = "\t") #151
 
-### getting eqtls vs non-eqtls in lung
+# getting eqtls vs non-eqtls in lung
 copd.snp.lung <- data.frame(
     interactions = c("Cis","Trans-intra", "Trans-inter"),
     number = c(148, 1, 2),
@@ -584,7 +563,8 @@ copd.snp.lung <- data.frame(
 
 #pdf("figures/functional_annotation/lung_copd_cis_vs_trans.pdf", width = 7, height = 9)
 ggplot(copd.snp.lung, aes(x = factor(interactions, 
-                                     level=c("Cis","Trans-intra", "Trans-inter")), y = percentage)) +
+                                     level=c("Cis","Trans-intra", "Trans-inter")), 
+                          y = percentage)) +
     geom_bar(stat="identity", position="dodge", fill="#009444") + 
     scale_fill_manual(values=c("#009444")) +
     scale_x_discrete("Interaction type") +
@@ -608,10 +588,10 @@ ggplot(copd.snp.lung, aes(x = factor(interactions,
 ## 2.5. Percentage of protein-coding genes, non-coding RNA genes and pseudogenes.
 
 ```{r gene_types, fig.width=5, fig.height=7}
-### Getting spatially regulated genes in lung
+# getting spatially regulated genes in lung
 sp_lung_egenes <- unique(sp_lung$gene) # 107
 
-### getting eqtls vs non-eqtls in lung
+# getting eqtls vs non-eqtls in lung
 copd.gene.lung <- data.frame(
     gene_types = c("Protein-coding","Non-coding RNA", "Pseudogene"),
     number = c(84, 22, 1),
@@ -652,7 +632,8 @@ And compressed it: `gzip tab_human_PPIs.full.v11.5_700.txt`
 
 ```{r PPI_cleaning}
 # loading human PPI network
-PPI_700 <- read.table(gzfile("results/string/tab_human_PPIs.full.v11.5_700.txt.gz"), header = FALSE, sep="\t") # 505,968 PPIs
+PPI_700 <- read.table(gzfile("results/string/tab_human_PPIs.full.v11.5_700.txt.gz"),
+                      header = FALSE, sep="\t") # 505,968 PPIs
 # removing all characters before and up to "."
 PPI_700$V1 <- gsub(".*\\.", "", PPI_700$V1); PPI_700$V2 <- gsub(".*\\.", "", PPI_700$V2)
 PPI_700 <- distinct(PPI_700) # 505,968 PPIs
@@ -667,8 +648,8 @@ Ensembl protein identifiers were mapped to Ensembl gene identifiers.
 
 ```{r protein_ID_mapping}
 # reading lung-specific gene regulatory network (GRN) data
-lung_GRN_genes <- read.table("data/lung_specific_GRN_genes.txt") # 15,855 genes
-colnames(lung_GRN_genes)<-c("gene_id", "gene_name")
+lung_GRN_genes <- read.table(gzfile("results/lung_specific_GRN/lung_specific_GRN_genes.txt.gz")) # 15,855 genes
+colnames(lung_GRN_genes) <- c("gene_id", "gene_name")
 lung_GRN_genes <- unique(lung_GRN_genes)
 
 # converting transcript IDs to gene IDs
@@ -679,14 +660,38 @@ edb <- EnsDb.Hsapiens.v86
 #listTables(edb)
 # getting protein information for gene IDs
 lung_GRN_proteins <- genes(edb, filter = ~ gene_id %in% lung_GRN_genes$gene_id,
-                       columns = c("protein_id", "gene_name"))
+                           columns = c("protein_id", "gene_name"))
 l_p_df <- bind_rows(lung_GRN_proteins@elementMetadata@listData) # 79,005
 #write.table(l_p_df, file = "results/string/lung_GRN_proteins.txt", sep = "\t", col.names = TRUE, row.names=FALSE)
 # getting only protein and gene IDs and removing protein-gene pairs containing NAs
 l_p_df <- l_p_df[, c("protein_id", "gene_name")]
 l_p_df <- l_p_df[complete.cases(l_p_df), ] # 65,742 proteins
 #write.table(l_p_df, file = "results/string/lung_GRN_gene_pairs.txt", sep = "\t", col.names = TRUE, row.names=FALSE)
-l_p_df <- read.table(gzfile("results/string/lung_GRN_gene_pairs.txt.gz"), header = TRUE, sep="\t", colClasses = "character")
+l_p_df <- read.table(gzfile("results/string/lung_GRN_gene_pairs.txt.gz"), header = TRUE, 
+                     sep="\t", colClasses = "character")
+```
+
+## 3.1. Number of unique human proteins in the STRING PPI network and the lung-specific PPI network.
+
+```{r proteins}
+# getting the number per chromosome
+string_proteins <- unique(c(string_700$V1, string_700$V2)) # 16,814
+lsspin_proteins <- unique(c(lsppin_700$V1, lsppin_700$V2)) # 10,188
+
+lung.map.p <- data.frame(
+  ppis = rep(c("LSPPIN","STRING")),
+  number = c(10188, (16814-10188)),
+  percentage = c(round((10188/16814)*100, 2),
+                 round(((16814-10188)/16814)*100, 2)))
+
+#pdf("figures/lung_eqtl_map/lung_map_proteins.pdf", width = 9, height = 9)
+ggplot(lung.map.p, aes(x = "", y = percentage, fill = ppis)) +
+  geom_bar(width = 1, stat = "identity", fill = c("#009444", "darkgrey"), color = "white") +
+  coord_polar("y", start = 0) +
+  #geom_text(aes(y = percentage, label = snps), color = "white")+
+  #scale_fill_manual(values = mycols) +
+  theme_void()
+#dev.off()
 ```
 
 Lung-specific PPIN (LSPPIN) was constructed by combining the STRING PPI network with lung-specific GRN.
