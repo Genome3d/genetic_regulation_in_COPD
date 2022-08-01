@@ -308,11 +308,32 @@ corr_gg
 #dev.off()
 ```
 
+### 2. Construction of COPD-associated lung-specific gene regulatory map (GRN).
+
+```{r copd_codes3d_results}
+# getting number of COPD-associated GWAS snps
+snps <- readLines("data/snps/263_COPD_snps_5E-8.txt") # 263
+
+# reading significant spatial interactions in lung
+sp_lung <- read.table(gzfile("results/codes3d/lung/significant_eqtls.txt.gz"), header = TRUE,
+                      sep = "\t") # 151
+
+# getting spatial eQTLs in lung
+sp_lung_eqtls <- unique(sp_lung$snp) # 103
+#writeLines(sp_lung_eqtls, con = "results/codes3d/lung/copd_lung_eqtl_snps.txt", sep = "\n")
+
+# getting spatially regulated genes in lung
+sp_lung_egenes <- unique(sp_lung$gene) # 107
+#writeLines(sp_lung_egenes, con = "results/codes3d/lung/copd_lung_egenes.txt", sep = "\n")
+```
+
+
 ## 1.6. Number of human protein-protein interactions (PPI) in the STRING PPI network and lung-specific PPI network.
 
 ```{r ppis}
 # getting the number of human PPIs in STRING and LSPPIN (with combined score 0.7).
-PPI_700 <- read.table(gzfile("results/string/tab_human_PPIs.full.v11.5_700.txt.gz"), header = FALSE, sep="\t") # 505,968 PPIs
+PPI_700 <- read.table(gzfile("results/string/tab_human_PPIs.full.v11.5_700.txt.gz"), 
+                      header = FALSE, sep="\t") # 505,968 PPIs
 # removing all characters before and up to "."
 PPI_700$V1 <- gsub(".*\\.", "", PPI_700$V1); PPI_700$V2 <- gsub(".*\\.", "", PPI_700$V2)
 string_700 <- distinct(PPI_700) # 505,968 PPIs
@@ -397,7 +418,7 @@ sp_lung_egenes <- unique(sp_lung$gene) # 107
 ## 2.1 Percentage of spatial eQTL SNPs and non-eQTL SNPs across lung.
 
 ```{r spatial_eqtl_vs_non-eQTL, fig.width=5, fig.height=7}
-### getting eqtls vs non-eqtls in lung
+# getting eqtls vs non-eqtls in lung
 copd.snp.lung <- data.frame(
     snps = c("eQTL","non-eQTL"),
     number = c(length(sp_lung_eqtls), length(snps)-length(sp_lung_eqtls)),
@@ -405,7 +426,8 @@ copd.snp.lung <- data.frame(
                    round((length(snps)-length(sp_lung_eqtls))/length(snps)*100, 2)))
 
 #pdf("figures/functional_annotation/lung_eqtls_vs_non-eqtls.pdf", width = 8, height = 9)
-ggplot(snp.lung, aes(x = factor(snps, level=c("non-eQTL","eQTL")), y = percentage), fill = snps) +
+ggplot(copd.snp.lung, aes(x = factor(snps, level=c("non-eQTL","eQTL")), y = percentage), 
+       fill = snps) +
     geom_bar(stat="identity", position = "dodge") + 
     scale_fill_manual(values=c("#ED1C24", "grey")) +
     scale_y_continuous("Percentage", expand = c(0,0), limits = c(0,65)) +
@@ -430,19 +452,23 @@ ggplot(snp.lung, aes(x = factor(snps, level=c("non-eQTL","eQTL")), y = percentag
 We used [wANNOVAR tool](http://wannovar.wglab.org/) to obtain information about the locus eQTLs tagged (9 June 2021). First, we extracted the funnctional annotation for COPD-associated eQTLs: `cut -f1,2,3,6,132 results/wannovar/query.output.genome_summary.txt | sort -u > results/wannovar/copd_fun_snp_ann.txt`
 
 ```{r wANNOVAR, fig.width=7, fig.height=5}
-# Calculating percentage of functionally annotated SNPs
+# calculating percentage of functionally annotated SNPs
 cal_ann <- function(phe, total) {
     df <- data.frame(matrix(ncol=3, nrow=0))
     colnames(df)<- c("annotation","number", "percent")
     for (i in 1:length(phe)){
         down <- nrow(phe[which(phe$Func.refGene=="downstream"), ])
-        df[nrow(df) + 1,] = list(annotation = "downstream", number = down, percent = down/total*100)
+        df[nrow(df) + 1,] = list(annotation = "downstream", number = down, 
+                                 percent = down/total*100)
         ex <- nrow(phe[which(phe$Func.refGene=="exonic"), ])
-        df[nrow(df) + 1,] = list(annotation = "exonic", number = ex, percent = ex/total*100)
+        df[nrow(df) + 1,] = list(annotation = "exonic", number = ex, 
+                                 percent = ex/total*100)
         inter <- nrow(phe[which(phe$Func.refGene=="intergenic"), ])
-        df[nrow(df) + 1,] = list(annotation = "intergenic", number = inter, percent = inter/total*100)
+        df[nrow(df) + 1,] = list(annotation = "intergenic", number = inter, 
+                                 percent = inter/total*100)
         intro <- nrow(phe[which(phe$Func.refGene=="intronic"), ])
-        df[nrow(df) + 1,] = list(annotation = "intronic", number = intro, percent = intro/total*100)
+        df[nrow(df) + 1,] = list(annotation = "intronic", number = intro, 
+                                 percent = intro/total*100)
         ncRNA_ex <- nrow(phe[which(phe$Func.refGene=="ncRNA_exonic"), ])
         df[nrow(df) + 1,] = list(annotation = "ncRNA_exonic", number = ncRNA_ex,
                                  percent = ncRNA_ex/total*100)
@@ -450,9 +476,11 @@ cal_ann <- function(phe, total) {
         df[nrow(df) + 1,] = list(annotation = "ncRNA_intronic", number = ncRNA_in,
                                  percent = ncRNA_in/total*100)
         up <- nrow(phe[which(phe$Func.refGene=="upstream"), ])
-        df[nrow(df) + 1,] = list(annotation = "upstream", number = up, percent = up/total*100)
+        df[nrow(df) + 1,] = list(annotation = "upstream", number = up, 
+                                 percent = up/total*100)
         UTR3 <- nrow(phe[which(phe$Func.refGene=="UTR3"), ])
-        df[nrow(df) + 1,] = list(annotation = "UTR3", number = UTR3, percent = UTR3/total*100)
+        df[nrow(df) + 1,] = list(annotation = "UTR3", number = UTR3, 
+                                 percent = UTR3/total*100)
         }
     df[!duplicated(df), ]
 }
@@ -460,11 +488,11 @@ cal_ann <- function(phe, total) {
 copd_ann <- read.table("results/wannovar/copd_fun_snp_ann.txt", sep = "\t", header=FALSE)
 copd_ann <- copd_ann[order(copd_ann$V1, decreasing = TRUE),]
 colnames(copd_ann) <- copd_ann[1, ]; copd_ann <- copd_ann[-1, ]
-copd_ann_lung <- subset(copd_ann, copd_ann$Otherinfo %in% lung_eqtls) # 103
+copd_ann_lung <- subset(copd_ann, copd_ann$Otherinfo %in% sp_lung_eqtls) # 103
 
-copd_fun_ann_lung <- cal_ann(copd_ann_lung, length(lung_eqtls))
+copd_fun_ann_lung <- cal_ann(copd_ann_lung, length(sp_lung_eqtls))
 
-# Lung eQTLs
+# lung eQTLs
 l_number <- c(copd_fun_ann_lung[copd_fun_ann_lung$annotation=="downstream",][,2],
               copd_fun_ann_lung[copd_fun_ann_lung$annotation=="exonic",][,2],
               copd_fun_ann_lung[copd_fun_ann_lung$annotation=="intergenic",][,2],
@@ -498,7 +526,8 @@ ggplot(lung_eqtls.df, aes(x = annotation, y = percent, fill = "#009444")) +
   scale_fill_manual(values = "#009444") +
   scale_y_continuous("Functional annotation", expand = c(0,0), limits = c(0,75)) + 
   geom_text(aes(y = percent, label = paste0(round(percent, digits=2), "%")),
-            position=position_dodge(width=0.9), vjust=0.75, hjust=-0.15, color = "black", size = 3.5) +
+            position=position_dodge(width=0.9), vjust=0.75, hjust=-0.15, 
+            color = "black", size = 3.5) +
   #scale_y_continuous(limits = c(0, 70)) +
   xlab("Percentage") +
   coord_flip()
@@ -508,7 +537,7 @@ ggplot(lung_eqtls.df, aes(x = annotation, y = percent, fill = "#009444")) +
 ## 2.3. Number of eGenes per eQTL SNP.
 
 ```{r genes_per_eqtl}
-### getting the number of eGenes per eQTL SNP
+# getting the number of eGenes per eQTL SNP
 copd.snps.x <- distinct(sp_lung[,c("snp", "gene")])
 copd.snps.freq <- count(distinct(sp_lung[,c("snp", "gene")]), snp) # 103 eQTL SNPs
 copd.snps.freq <- data.frame(table(copd.snps.freq$n))
@@ -611,171 +640,6 @@ ggplot(copd.gene.lung, aes(x = factor(gene_types,
     geom_text(aes(y = percentage, label = paste0("n=", number)),
               position=position_dodge(width=0.9), vjust=-0.25, color = "black", 
               size = 8, fontface = 'italic')
-#dev.off()
-```
-
-## 2.6. [OPTIONAL] Replication in lung eQTL consortium dataset.
-
-We have calculated lung cis-acting (+/- 1MB) eQTLs using the lung eQTL consortium data. We found 11 out of 263 SNPs that are not present in the lung eQTL consortium dataset. rs10491678 is available, but there is no probeset nearby.
-
-```{r LungConsortium_vs_GTEx, fig.width=7, fig.height=7}
-### Loading lung eqtl consortium eqtls for COPD-associated snps
-nsp_cons <- read.table("results/lung_eqtl_consortium/eQTL_251snps_n1038.txt", header = TRUE, sep = "\t") # 9,878 cis-acting interactions
-nsp_cons_eqtls <- unique(nsp_cons$ID) # 251 eQTL SNPs
-nsp_cons_egenes <- unique(nsp_cons$gene) # 2,379 eGenes
-nsp_cons_eqtl_egene_pairs <- unique(subset(nsp_cons, select = c("ID", "gene"))) # 5,724 eQTL-eGene pairs
-
-sign_nsp_cons <- subset(nsp_cons, P < 0.00000005) #171 cis-acting interactions
-sign_nsp_cons_eqtls <- unique(sign_nsp_cons$ID) # 63 eQTL SNPs
-sign_nsp_cons_egenes <- unique(sign_nsp_cons$gene) # 71 eGenes
-
-# Checking overlaps between spatial CoDeS3D and non-spatial lung consortium eQTLs
-#mixcolor(0.5, RGB(0, 136, 55), RGB(194, 165, 207)) --> RGB(97, 150.5, 131) #619683
-colors <- c("#009444", "#c2a5cf", "#619683")
-sp_nsplc_eqtls <- c("Spatial" = length(sp_lung_eqtls), "Non-spatial" = length(sign_nsp_cons_eqtls),
-                  "Spatial&Non-spatial" = length(intersect(sp_lung_eqtls, sign_nsp_cons_eqtls)))
-
-#pdf("figures/functional_annotation/spatial_codes3d_vs_nonspatial_lungcons_eqtls.pdf", width = 8, height = 2)
-sp_nsplc_eqtls_venn <- euler(sp_nsplc_eqtls)
-par(cex=0.7)
-plot(sp_nsplc_eqtls_venn,
-     fills = list(fill = colors), 
-     cex.main = 2.5,
-     quantities = TRUE,
-     legend = list(labels = c("Spatial CoDeS3D", "Non-spatial Lung Consortium")))
-#dev.off()
-
-# Checking overlaps between non-spatial CoDeS3D and non-spatial lung consortium eQTLs
-#mixcolor(0.5, RGB(166, 219, 160), RGB(194, 165, 207)) --> RGB(180, 192, 183.5) #b4c0b7
-#colors <- c("#a6dba0", "#c2a5cf", "#b4c0b7")
-#nsp_nsplc_eqtls <- c("CoDeS3D" = length(nsp_lung_eqtls),
-#                     "LungConsortium" = length(sign_nsp_cons_eqtls),
-#                     "CoDeS3D&LungConsortium" = length(intersect(nsp_lung_eqtls, sign_nsp_cons_eqtls)))
-
-#pdf("figures/functional_annotation/nonspatial_codes3d_vs_nonspatial_lungcons_eqtls.pdf", width = 8, height = 8)
-#nsp_nsplc_eqtls_venn <- euler(nsp_nsplc_eqtls)
-#par(cex=0.7)
-#plot(nsp_nsplc_eqtls_venn,
-#     fills = list(fill = colors), 
-#     cex.main = 1.5,
-#     quantities = TRUE,
-#     legend = list(labels = c("Non-spatial CoDeS3D", "Non-spatial Lung Consortium")))
-#dev.off()
-
-# Checking overlaps between spatial CoDeS3D and non-spatial CoDeS3D eQTLs
-#mixcolor(0.5, RGB(0, 136, 55), RGB(166, 219, 160)) --> RGB(83, 177.5, 107.5) #53b16b
-#colors <- c("#008837", "#a6dba0", "#53b16b")
-#sp_nsp_eqtls <- c("Spatial" = length(sp_lung_eqtls), "Non-spatial" = length(nsp_lung_eqtls),
-#                  "Spatial&Non-spatial" = length(intersect(sp_lung_eqtls, nsp_lung_eqtls)))
-
-#pdf("figures/functional_annotation/spatial_vs_nonspatial_codes3d_eqtls.pdf", width = 8, height = 2)
-#sp_nsp_eqtls_venn <- euler(sp_nsp_eqtls)
-#par(cex=0.7)
-#plot(sp_nsp_eqtls_venn,
-#     fills = list(fill = colors), 
-#     cex.main = 1.5,
-#     quantities = TRUE,
-#     legend = list(labels = c("Spatial CoDeS3D", "Non-spatial CoDeS3D")))
-#dev.off()
-
-### Identification of overlaps among spatial CoDeS3D and non-spatial Lung Consortium eQTL-eGene interactions.
-
-## Extract eQTL-eGene pairs
-sp_lung_int <- sp_lung %>% select(snp, gene); sp_lung_int <- unique(sp_lung_int)
-#nsp_lung_int <- nsp_lung %>% select(snp, gene); nsp_lung_int <- unique(nsp_lung_int)
-nsp_cons_int <- sign_nsp_cons %>% select(ID, gene); nsp_cons_int <-unique(nsp_cons_int)
-nsp_cons_int <- nsp_cons_int %>% rename(snp = ID)
-
-
-## Checking overlaps between spatial CoDeS3D and non-spatial lung consortium eQTL-eGene interactions
-colors <- c("#009444", "#c2a5cf", "#619683")
-sp_nsplc_int <- c("Spatial" = nrow(sp_lung_int), "Non-spatial" = nrow(nsp_cons_int),
-                  "Spatial&Non-spatial" = nrow(intersect(sp_lung_int, nsp_cons_int)))
-
-#pdf("figures/functional_annotation/spatial_codes3d_vs_nonspatial_lungcons_interactions.pdf", width = 8, height = 2)
-sp_nsplc_venn <- euler(sp_nsplc_int)
-par(cex=0.7)
-plot(sp_nsplc_venn,
-     fills = list(fill = colors), 
-     cex.main = 1.5,
-     quantities = TRUE,
-     legend = list(labels = c("Spatial CoDeS3D", "Non-spatial Lung Consortium")))
-#dev.off()
-
-# Checking overlaps between spatial and non-spatial CoDeS3D eQTL-eGene interactions
-#colors <- c("#008837", "#a6dba0", "#53b16b")
-#sp_nsp_int <- c("Spatial" = nrow(sp_lung_int), "Non-spatial" = nrow(nsp_lung_int),
-#                "Spatial&Non-spatial" = nrow(intersect(sp_lung_int, nsp_lung_int)))
-
-#pdf("figures/functional_annotation/spatial_vs_nonspatial_codes3d_interactions.pdf", width = 9, height = 6)
-#sp_nsp_venn <- euler(sp_nsp_int)
-#par(cex=0.7)
-#plot(sp_nsp_venn,
-#     fills = list(fill = colors), 
-#     cex.main = 1.5,
-#     quantities = TRUE,
-#     legend = list(labels = c("Spatial CoDeS3D", "Non-spatial CoDeS3D")))
-#dev.off()
-
-# Checking overlaps between non-spatial CoDeS3D and non-spatial lung consortium eQTL-eGene interactions
-#colors <- c("#a6dba0", "#c2a5cf", "#b4c0b7")
-#nsp_nsplc_int <- c("CoDeS3D" = nrow(nsp_lung_int), "LungConsortium" = nrow(nsp_cons_int),
-#                   "CoDeS3D&LungConsortium" = nrow(intersect(nsp_lung_int, nsp_cons_int)))
-
-#pdf("figures/functional_annotation/nonspatial_codes3d_vs_nonspatial_lungcons_interactions.pdf", width = 12, height = 6)
-#nsp_nsplc_venn <- euler(nsp_nsplc_int)
-#par(cex=0.7)
-#plot(nsp_nsplc_venn,
-#     fills = list(fill = colors), 
-#     cex.main = 1.5,
-#     quantities = TRUE,
-#     legend = list(labels = c("Non-spatial CoDeS3D", "Non-spatial Lung Consortium")))
-#dev.off()
-
-### Identification of overlaps among spatial CoDeS3D and non-spatial Lung Consortium genes.
-# Checking overlaps between spatial CoDeS3D and non-spatial lung consortium eQTL-eGene interactions
-colors <- c("#009444", "#c2a5cf", "#619683")
-sp_nsplc_genes <- c("Spatial" = length(sp_lung_egenes), "Non-spatial" = length(sign_nsp_cons_egenes),
-                  "Spatial&Non-spatial" = length(intersect(sp_lung_egenes, sign_nsp_cons_egenes)))
-
-#pdf("figures/functional_annotation/spatial_codes3d_vs_nonspatial_lungcons_genes.pdf", width = 8, height = 2)
-sp_nsplc_genes_venn <- euler(sp_nsplc_genes)
-par(cex=0.7)
-plot(sp_nsplc_genes_venn,
-     fills = list(fill = colors), 
-     cex.main = 1.5,
-     quantities = TRUE,
-     legend = list(labels = c("Spatial CoDeS3D", "Non-spatial Lung Consortium")))
-#dev.off()
-
-# Checking overlaps between spatial and non-spatial CoDeS3D eGenes
-#colors <- c("#008837", "#a6dba0", "#53b16b")
-#sp_nsp_genes <- c("Spatial" = length(sp_lung_egenes), "Non-spatial" = length(nsp_lung_egenes),
-#                "Spatial&Non-spatial" = length(intersect(sp_lung_egenes, nsp_lung_egenes)))
-
-#pdf("figures/functional_annotation/spatial_vs_nonspatial_codes3d_genes.pdf", width = 8, height = 2)
-#sp_nsp_genes_venn <- euler(sp_nsp_genes)
-#par(cex=0.7)
-#plot(sp_nsp_genes_venn,
-#     fills = list(fill = colors), 
-#     cex.main = 1.5,
-#     quantities = TRUE,
-#     legend = list(labels = c("Spatial CoDeS3D", "Non-spatial CoDeS3D")))
-#dev.off()
-
-# Checking overlaps between non-spatial CoDeS3D and non-spatial lung consortium eQTL-eGene interactions
-#colors <- c("#a6dba0", "#c2a5cf", "#b4c0b7")
-#nsp_nsplc_genes <- c("CoDeS3D" = length(nsp_lung_egenes), "LungConsortium" = length(sign_nsp_cons_egenes),
-#                   "CoDeS3D&LungConsortium" = length(intersect(nsp_lung_egenes, sign_nsp_cons_egenes)))
-
-#pdf("figures/functional_annotation/nonspatial_codes3d_vs_nonspatial_lungcons_genes.pdf", width = 8, height = 2)
-#nsp_nsplc_genes_venn <- euler(nsp_nsplc_genes)
-#par(cex=0.7)
-#plot(nsp_nsplc_genes_venn,
-#     fills = list(fill = colors), 
-#     cex.main = 1.5,
-#     quantities = TRUE,
-#     legend = list(labels = c("Non-spatial CoDeS3D", "Non-spatial Lung Consortium")))
 #dev.off()
 ```
 
