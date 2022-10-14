@@ -13,7 +13,7 @@ knitr::opts_chunk$set(echo = TRUE, message=FALSE)
 pacman::p_load(ggplot2, pander, dplyr, tidyr, ggrepel, tidyverse, reshape2, RColorBrewer,
                gprofiler2, clusterProfiler, circlize, ComplexHeatmap, igraph, viridis, plotly,
                venneuler, eulerr, Rcpp, colorspace, EnsDb.Hsapiens.v86, scales, ggpubr, ggrepel,
-               vroom, ggforce, cowplot, pheatmap, readxl)
+               vroom, ggforce, cowplot, pheatmap, readxl, disgenet2r, httr)
 
 # colors: lung - #009444
 ```
@@ -40,7 +40,7 @@ First, we run CoDeS3D pipeline to get COPD-associated spatial regulatory interac
 
 ## 1. Construction of the entire lung-specific gene regulatory map (GRN).
 
-### 1.1. Percentage of spatial lung-specific eQTL SNPs and non-eQTL SNPs among all variants (genotyped from lung samples obtained from GTEx v8).
+### 1.1. [UPDATE] Percentage of spatial lung-specific eQTL SNPs and non-eQTL SNPs among all variants (genotyped from lung samples obtained from GTEx v8).
 
 ```{r lung_map_eqtls_vs_noneqtls}
 ### Getting number of SNPs vs eQTLs in lung across the entire genome
@@ -60,7 +60,7 @@ ggplot(lung.map.genome, aes(x = "", y = percentage, fill = snps)) +
 #dev.off()
 ```
 
-### 1.2. Percentage of genes spatially regulated in the lung among all genes from GTEx v8.
+### 1.2. [UPDATE] Percentage of genes spatially regulated in the lung among all genes from GTEx v8.
 
 ```{r lung_map_egenes}
 ### Getting number of eGenes
@@ -651,7 +651,7 @@ create_lsppi <- function(ppi, dict){
 lsppin.df <- read.table(gzfile("results/string/LSPPIN.txt.gz"), header = TRUE, sep = "\t")
 ```
 
-### 3.1. Number of human protein-protein interactions (PPI) in the STRING PPI network and lung-specific PPI network.
+### 3.1. [UPDATE] Number of human protein-protein interactions (PPI) in the STRING PPI network and lung-specific PPI network.
 
 ```{r ppis}
 # getting the number of human PPIs in STRING and LSPPIN (with combined score 0.7).
@@ -679,7 +679,7 @@ ggplot(lung.map.ppis, aes(x = "", y = percentage, fill = ppis)) +
 #dev.off()
 ```
 
-### 3.2. Number of unique human proteins in the STRING PPI network and the lung-specific PPI network.
+### 3.2. [UPDATE] Number of unique human proteins in the STRING PPI network and the lung-specific PPI network.
 
 ```{r proteins}
 # getting the number per chromosome
@@ -752,13 +752,14 @@ Pathway analysis was performed using the g:GOSt module of the g:Profiler tool. T
 
 ```{r pathway_analysis}
 # This function quieries g:GOSt module of the g:Profiler tool. It takes a vector of genes and quieries the GOSt module. It outputs the dataframe with the query results for the genes.
+# with "known" domain scope - run on 6 October 2022.
 query_kegg <- function(genes){
     tryCatch({
         t <- gost(query = genes, organism = "hsapiens", ordered_query = TRUE,
                   multi_query = FALSE, significant = TRUE, exclude_iea = FALSE,
                   measure_underrepresentation = FALSE, evcodes = TRUE,
                   user_threshold = 0.05, correction_method = "fdr",
-                  domain_scope = "annotated", custom_bg = NULL,
+                  domain_scope = "known", custom_bg = NULL,
                   numeric_ns = "", sources = c("KEGG"), as_short_link = FALSE)
         return(t)
         }, error=function(e){
@@ -766,75 +767,84 @@ query_kegg <- function(genes){
         })
 }
 
-# Pathways analysis for 9 COPD-associated PPIN clusters in the lung
-communities(copd_lc) # 9 clusters
+# Pathway analysis of all 107 COPD-associated genes
+copd_path <- query_kegg(sp_lung_egenes)
+copd_paths <- copd_path$result
+copd_paths.df <- apply(copd_paths, 2, as.character)
+#write.table(copd_paths.df, file = "results/kegg/copd_egenes_kegg_fdr_known.txt", sep = "\t", col.names = TRUE, row.names=FALSE)
 
-# Uncomment the lines below to query g:GOSt
-# cluster 1
-communities(copd_lc)[1] # to get gene names
-c_1 <- communities(copd_lc)$'1' # to get gene names
-#c_1_path <- query_kegg(c_1)
-#c_1_paths <- c_1_path$result
-#c_1.df <- apply(c_1_paths, 2, as.character)
-#write.table(c_1.df, file = "results/kegg/copd_LSPPIN_cluster1_kegg_fdr.txt", sep = "\t", col.names = TRUE, row.names=FALSE)
-
-# cluster 2
-communities(copd_lc)[2] # to get gene names
-c_2 <- communities(copd_lc)$'2' # to get gene names
+# # Pathways analysis for 9 COPD-associated PPIN clusters in the lung
+# communities(copd_lc) # 9 clusters
+# 
+# # Uncomment the lines below to query g:GOSt
+# # cluster 1 - TGF-beta signaling pathway
+# communities(copd_lc)[1] # to get gene names
+# c_1 <- communities(copd_lc)$'1' # to get gene names
+# c_1_path <- query_kegg(c_1)
+# c_1_paths <- c_1_path$result
+# c_1.df <- apply(c_1_paths, 2, as.character)
+# #write.table(c_1.df, file = "results/kegg/copd_LSPPIN_cluster1_kegg_fdr_known.txt", sep = "\t", col.names = TRUE, row.names=FALSE)
+# 
+# # cluster 2 - Regulation of actin cytoskeleton, Focal adhesion 
+# communities(copd_lc)[2] # to get gene names
+# c_2 <- communities(copd_lc)$'2' # to get gene names
 # c_2_path <- query_kegg(c_2)
 # c_2_paths <- c_2_path$result
 # c_2.df <- apply(c_2_paths, 2, as.character)
-# write.table(c_2.df, file = "results/kegg/copd_LSPPIN_cluster2_kegg_fdr.txt", sep = "\t", col.names = TRUE, row.names=FALSE)
-
-# cluster 3
-communities(copd_lc)[3] # to get gene names
-c_3 <- communities(copd_lc)$'3' # to get gene names
+# #write.table(c_2.df, file = "results/kegg/copd_LSPPIN_cluster2_kegg_fdr_known.txt", sep = "\t", col.names = TRUE, row.names=FALSE)
+# 
+# # cluster 3 - Neuroactive ligand-receptor interaction, Cholinergic synapse  
+# communities(copd_lc)[3] # to get gene names
+# c_3 <- communities(copd_lc)$'3' # to get gene names
 # c_3_path <- query_kegg(c_3)
 # c_3_paths <- c_3_path$result
 # c_3.df <- apply(c_3_paths, 2, as.character)
-# write.table(c_3.df, file = "results/kegg/copd_LSPPIN_cluster3_kegg_fdr.txt", sep = "\t", col.names = TRUE, row.names=FALSE)
-
-# cluster 4
-communities(copd_lc)[4] # to get gene names
-c_4 <- communities(copd_lc)$'4' # to get gene names
-#c_4_path <- query_kegg(c_4) # Unknown pathway
-
-# cluster 5
-communities(copd_lc)[5] # to get gene names
-c_5 <- communities(copd_lc)$'5' # to get gene names
+# #write.table(c_3.df, file = "results/kegg/copd_LSPPIN_cluster3_kegg_fdr_known.txt", sep = "\t", col.names = TRUE, row.names=FALSE)
+# 
+# # cluster 4 - Unknown 
+# communities(copd_lc)[4] # to get gene names
+# c_4 <- communities(copd_lc)$'4' # to get gene names
+# c_4_path <- query_kegg(c_4) # Unknown pathway
+# 
+# # cluster 5 Immune-related pathways
+# communities(copd_lc)[5] # to get gene names
+# c_5 <- communities(copd_lc)$'5' # to get gene names
 # c_5_path <- query_kegg(c_5)
 # c_5_paths <- c_5_path$result
 # c_5.df <- apply(c_5_paths, 2, as.character)
-# write.table(c_5.df, file = "results/kegg/copd_LSPPIN_cluster5_kegg_fdr.txt", sep = "\t", col.names = TRUE, row.names=FALSE)
-
-# cluster 6
-communities(copd_lc)[6] # to get gene names
-c_6 <- communities(copd_lc)$'6' # to get gene names
+# #write.table(c_5.df, file = "results/kegg/copd_LSPPIN_cluster5_kegg_fdr_known.txt", sep = "\t", col.names = TRUE, row.names=FALSE)
+# 
+# # cluster 6 - Sulfur relay system, Folate biosynthesis
+# communities(copd_lc)[6] # to get gene names
+# c_6 <- communities(copd_lc)$'6' # to get gene names
 # c_6_path <- query_kegg(c_6)
 # c_6_paths <- c_6_path$result
 # c_6.df <- apply(c_6_paths, 2, as.character)
-# write.table(c_6.df, file = "results/kegg/copd_LSPPIN_cluster6_kegg_fdr.txt", sep = "\t", col.names = TRUE, row.names=FALSE)
-
-# cluster 7
-communities(copd_lc)[7] # to get gene names
-c_7 <- communities(copd_lc)$'7' # to get gene names
+# #write.table(c_6.df, file = "results/kegg/copd_LSPPIN_cluster6_kegg_fdr_known.txt", sep = "\t", col.names = TRUE, row.names=FALSE)
+# 
+# # cluster 7 - Insulin resistance, Insulin signaling pathway
+# communities(copd_lc)[7] # to get gene names
+# c_7 <- communities(copd_lc)$'7' # to get gene names
 # c_7_path <- query_kegg(c_7)
 # c_7_paths <- c_7_path$result
 # c_7.df <- apply(c_7_paths, 2, as.character)
-# write.table(c_7.df, file = "results/kegg/copd_LSPPIN_cluster7_kegg_fdr.txt", sep = "\t", col.names = TRUE, row.names=FALSE)
-
-# cluster 8
-communities(copd_lc)[8] # to get gene names
-c_8 <- communities(copd_lc)$'8' # to get gene names
-#c_8_path <- query_kegg(c_8) # Unknown pathway
-
-# cluster 9
-communities(copd_lc)[9] # to get gene names
-c_9 <- communities(copd_lc)$'9' # to get gene names
+# #write.table(c_7.df, file = "results/kegg/copd_LSPPIN_cluster7_kegg_fdr_known.txt", sep = "\t", col.names = TRUE, row.names=FALSE)
+# 
+# # cluster 8 - Phagosome
+# communities(copd_lc)[8] # to get gene names
+# c_8 <- communities(copd_lc)$'8' # to get gene names
+# c_8_path <- query_kegg(c_8)
+# c_8_paths <- c_8_path$result
+# c_8.df <- apply(c_8_paths, 2, as.character)
+# #write.table(c_8.df, file = "results/kegg/copd_LSPPIN_cluster8_kegg_fdr_known.txt", sep = "\t", col.names = TRUE, row.names=FALSE)
+# 
+# # cluster 9 - Axon guidance, Regulation of actin cytoskeleton 
+# communities(copd_lc)[9] # to get gene names
+# c_9 <- communities(copd_lc)$'9' # to get gene names
 # c_9_path <- query_kegg(c_9)
 # c_9_paths <- c_9_path$result
 # c_9.df <- apply(c_9_paths, 2, as.character)
-# write.table(c_9.df, file = "results/kegg/copd_LSPPIN_cluster9_kegg_fdr.txt", sep = "\t", col.names = TRUE, row.names=FALSE)
+# #write.table(c_9.df, file = "results/kegg/copd_LSPPIN_cluster9_kegg_fdr_known.txt", sep = "\t", col.names = TRUE, row.names=FALSE)
 ```
 
 ### 4.3. Gene Ontology (GO) enrichment analysis of the COPD-associated genes within the LSPPIN clusters.
@@ -1001,6 +1011,8 @@ cl1_l2_1 <- lsppin.df[grep(c('KAT8'), lsppin.df[, c("p1")]), ] # 41
 cl1_l2_2 <- lsppin.df[grep(c('RUVBL1'), lsppin.df[, c("p1")]), ] # 124
 cl1_l2_3 <- lsppin.df[grep(c('SUOX'), lsppin.df[, c("p1")]), ] # 40
 
+bin1 <- lsppin.df[grep(c('BIN1'), lsppin.df[, c("p1")]), ] # 
+
 # heatmaps for levels 0 and 1
 colors = colorRamp2(c(-1.5,0,1.5), c("blue", "#E8E8E8","red"), space = "RGB")
 
@@ -1107,4 +1119,28 @@ decorate_annotation("foo", slice = 1, {
 decorate_annotation("top", slice = 1, {
   grid.rect(x = 0, width = unit(0.7, "mm"), gp = gpar(fill = NA, col = NA), just = "centre")})
 #dev.off()
+```
+
+```{r disgenet_query, fig.width=10, fig.height=7}
+auth_params <- list("email"="e.golovina@auckland.ac.nz","password"="2022Genes!13")
+api_host <- "https://www.disgenet.org/api"
+api_key <- NULL
+
+r <-POST(paste(api_host,"/auth/", sep=""), body=auth_params)
+if(status_code(r)==200){
+    #Lets store the api key in a new variable and use it again in new requests
+    json_response <- content(r, "parsed")
+    api_key <- json_response$token
+    print(paste(api_key," This is your user API key.",sep="")) #Comment this line if you don't want your API key to show up in the terminal
+} else {
+  print(status_code(r))
+  print(content(r, "parsed"))
+}
+if(!is.null(api_key)){
+    #Store the api key into a named list with the following format, see next line.
+    authorization_headers <- c(Authorization=paste("Bearer ",api_key, sep=""))
+    #Lets get all the diseases associated to a gene eg. APP (EntrezID 351) and restricted by a source.
+    gda_response <- GET(paste(api_host,"/gda/gene/351",sep=""), query=list(source="UNIPROT"), add_headers(.headers=authorization_headers)) #All protected endpoints require the add_headers and the authorization token in order to be accessed.
+    print(content(gda_response, "parsed"))
+}
 ```
