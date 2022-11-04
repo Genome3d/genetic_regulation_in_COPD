@@ -75,7 +75,7 @@ ggplot(lung.map.genome, aes(x = "", y = percentage, fill = snps)) +
 lung_GRN_genes <- read.table(gzfile("results/lung_specific_GRN/lung_specific_GRN_genes.txt.gz"))
 colnames(lung_GRN_genes) <- c("gene_id", "gene_name")
 lung_GRN_genes <- unique(lung_GRN_genes) # 15855
-gtex_genes <- read.table("data/gene_reference.bed", header = FALSE, sep = "\t") #56200
+gtex_genes <- read.table(gzfile("data/gene_reference.bed.gz"), header = FALSE, sep = "\t") #56200
 
 lung.map.genes <- data.frame(
   genes = rep(c("eGenes","non-eGenes")),
@@ -674,7 +674,7 @@ create_lsppi <- function(ppi, dict){
 lsppin.df <- read.table(gzfile("results/string/LSPPIN.txt.gz"), header = TRUE, sep = "\t")
 ```
 
-### 3.1. [UPDATE] Number of human protein-protein interactions (PPI) in the STRING PPI network and lung-specific PPI network.
+### 3.1. Number of human protein-protein interactions (PPI) in the STRING PPI network and lung-specific PPI network.
 
 ```{r ppis}
 # getting the number of human PPIs in STRING and LSPPIN (with combined score 0.7).
@@ -685,12 +685,13 @@ PPI_700$V1 <- gsub(".*\\.", "", PPI_700$V1); PPI_700$V2 <- gsub(".*\\.", "", PPI
 string_700 <- distinct(PPI_700) # 505,968 PPIs
 lsppin_700 <- subset(string_700, (string_700$V1 %in% l_p_df$protein_id & 
                                     string_700$V2 %in% l_p_df$protein_id)) # 210,192 PPIs
+nrow(lsppin_700)
 
 lung.map.ppis <- data.frame(
   ppis = rep(c("LSPPIN","STRING")),
-  number = c(210192, (505968-210192)),
-  percentage = c(round((210192/505968)*100, 2),
-                 round(((505968-210192)/505968)*100, 2)))
+  number = c(nrow(lsppin_700), (nrow(string_700)-nrow(lsppin_700))),
+  percentage = c(round((nrow(lsppin_700)/nrow(string_700))*100, 2),
+                 round(((nrow(string_700)-nrow(lsppin_700))/nrow(string_700))*100, 2)))
 
 #pdf("figures/lung_eqtl_map/lung_map_ppis.pdf", width = 9, height = 9)
 ggplot(lung.map.ppis, aes(x = "", y = percentage, fill = ppis)) +
