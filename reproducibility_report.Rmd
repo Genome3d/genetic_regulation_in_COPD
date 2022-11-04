@@ -13,7 +13,7 @@ knitr::opts_chunk$set(echo = TRUE, message=FALSE)
 pacman::p_load(ggplot2, pander, dplyr, tidyr, ggrepel, tidyverse, reshape2, RColorBrewer,
                gprofiler2, clusterProfiler, circlize, ComplexHeatmap, igraph, viridis, plotly,
                venneuler, eulerr, Rcpp, colorspace, EnsDb.Hsapiens.v86, scales, ggpubr, ggrepel,
-               vroom, ggforce, cowplot, pheatmap, readxl, disgenet2r, httr)
+               vroom, ggforce, cowplot, pheatmap, readxl, httr)
 
 # colors: lung - #009444
 ```
@@ -40,15 +40,22 @@ First, we run CoDeS3D pipeline to get COPD-associated spatial regulatory interac
 
 ## 1. Construction of the entire lung-specific gene regulatory map (GRN).
 
-### 1.1. [UPDATE] Percentage of spatial lung-specific eQTL SNPs and non-eQTL SNPs among all variants (genotyped from lung samples obtained from GTEx v8).
+### 1.1. Percentage of spatial lung-specific eQTL SNPs and non-eQTL SNPs among all variants (genotyped from lung samples obtained from GTEx v8). 
+
+Download lung-specific GRN using this link --> https://auckland.figshare.com/account/projects/152496/articles/21498774
+Download eQTLs from lung-specic GRN using this link --> https://auckland.figshare.com/account/projects/152496/articles/21498780
+Download genes from lung-specific GRN using this link --> https://auckland.figshare.com/account/projects/152496/articles/21498786
 
 ```{r lung_map_eqtls_vs_noneqtls}
 ### Getting number of SNPs vs eQTLs in lung across the entire genome
+l_grn_eqtls <- read.table("data/lung_grn_eqtls.txt", header = TRUE, sep = "\t")
+gtex_snps <- vroom(file="./data/GTEx_Analysis_2017-06-05_v8_WholeGenomeSeq_838Indiv_Analysis_Freeze.lookup_table_short_version.txt.gz", delim ="\t") #43174097
+
 lung.map.genome <- data.frame(
   snps = rep(c("eQTL","non-eQTL")),
-  number = c(740028, (43174097-740028)),
-  percentage = c(round((740028/43174097)*100, 2),
-                 round(((43174097-740028)/43174097)*100, 2)))
+  number = c(nrow(l_grn_eqtls), (nrow(gtex_snps)-nrow(l_grn_eqtls))),
+  percentage = c(round((nrow(l_grn_eqtls)/nrow(gtex_snps))*100, 2),
+                 round(((nrow(gtex_snps)-nrow(l_grn_eqtls))/nrow(gtex_snps))*100, 2)))
 
 #pdf("figures/lung_eqtl_map/lung_map_eqtls_vs_non-eqtls_genomewide.pdf", width = 9, height = 9)
 ggplot(lung.map.genome, aes(x = "", y = percentage, fill = snps)) +
@@ -60,15 +67,21 @@ ggplot(lung.map.genome, aes(x = "", y = percentage, fill = snps)) +
 #dev.off()
 ```
 
-### 1.2. [UPDATE] Percentage of genes spatially regulated in the lung among all genes from GTEx v8.
+### 1.2. Percentage of genes spatially regulated in the lung among all genes from GTEx v8.
 
 ```{r lung_map_egenes}
 ### Getting number of eGenes
+# reading lung-specific gene regulatory network (GRN) data
+lung_GRN_genes <- read.table(gzfile("results/lung_specific_GRN/lung_specific_GRN_genes.txt.gz"))
+colnames(lung_GRN_genes) <- c("gene_id", "gene_name")
+lung_GRN_genes <- unique(lung_GRN_genes) # 15855
+gtex_genes <- read.table("data/gene_reference.bed", header = FALSE, sep = "\t") #56200
+
 lung.map.genes <- data.frame(
   genes = rep(c("eGenes","non-eGenes")),
-  number = c(15855, (56200-15855)),
-  percentage = c(round((15855/56200)*100, 2),
-                 round(((56200-15855)/56200)*100, 2)))
+  number = c(nrow(lung_GRN_genes), (nrow(gtex_genes)-nrow(lung_GRN_genes))),
+  percentage = c(round((nrow(lung_GRN_genes)/nrow(gtex_genes))*100, 2),
+                 round(((nrow(gtex_genes)-nrow(lung_GRN_genes))/nrow(gtex_genes))*100, 2)))
 
 #pdf("figures/lung_eqtl_map/lung_map_egeness_vs_non-egenes_genomewide.pdf", width = 9, height = 9)
 ggplot(lung.map.genes, aes(x = "", y = percentage, fill = genes)) +
@@ -446,6 +459,16 @@ ggplot(lung_eqtls.df, aes(x = annotation, y = percent, fill = "#009444")) +
   xlab("Percentage") +
   coord_flip()
 #dev.off()
+
+gwas <- read.table("results/wannovar/gwas.txt", header = TRUE, sep = "\t", quote="", encoding="UTF-8")
+eqtl <- read.table("results/wannovar/eqtl.txt", header = TRUE, sep = "\t", quote="", encoding="UTF-8")
+merged <- left_join(eqtl, gwas, by = "snp")
+#write.table(merged, file = "results/wannovar/annotated_eqtl_snps.txt", sep = "\t", col.names = FALSE, row.names=FALSE)
+
+copd_gwas <- read.table("results/codes3d/copd_gwas.txt", header = TRUE, sep = "\t", quote="", encoding="UTF-8")
+copd_eqtl <- read.table("results/codes3d/copd_eqtl.txt", header = TRUE, sep = "\t", quote="", encoding="UTF-8")
+copd_merged <- left_join(copd_gwas, copd_eqtl, by = "snp")
+#write.table(copd_merged, file = "results/codes3d/copd_gwas_vs_eqtl_snps.txt", sep = "\t", col.names = FALSE, row.names=FALSE)
 ```
 
 ### 2.3. Number of eGenes per eQTL SNP.
@@ -978,66 +1001,31 @@ row_od = c("SSH2", "TESK2")
 p2_l0.mat <- as.matrix(p2_l0)
 ha = rowAnnotation(foo = anno_empty(border = TRUE))
 ht = HeatmapAnnotation(top = anno_empty(border = FALSE))
-#pdf("figures/heatmaps/p2_l0.pdf", width = 14, height = 10)
+#pdf("figures/p2_l0.pdf", width = 14, height = 10)
 Heatmap(p2_l0.mat, name = "log2(aFC)", #column_title = "eQTL SNPs",
         col = colors, na_col = "white", #row_title = "shared eGenes",
         cluster_rows = FALSE, cluster_columns = FALSE, row_names_side = "left",
         column_names_side = "top", row_names_gp = gpar(fontface = "italic"),
         row_order = row_od,
-        width = unit(22, "cm"), height = unit(5, "cm"),
+        width = unit(26, "cm"), height = unit(5, "cm"),
         right_annotation = ha, top_annotation = ht,
         border = TRUE, rect_gp = gpar(col = "grey"))
 decorate_annotation("foo", slice = 1, {
-  grid.rect(x = 0, width = unit(10, "mm"), gp = gpar(fill = NA, col = NA), just = "left")
+  grid.rect(x = 0, width = unit(12, "mm"), gp = gpar(fill = NA, col = NA), just = "left")
   grid.text(paste("Level 0", collapse = "\n"), x = unit(5, "mm"), just = "centre", rot = 90,
             gp = gpar(fontsize = 13, fontface = "bold"))})
 decorate_annotation("top", slice = 1, {
   grid.rect(x = 0, width = unit(0.7, "mm"), gp = gpar(fill = NA, col = NA), just = "centre")})
 #dev.off()
 
-p2_l1 <- read.table("results/heatmaps/path2_level1.txt", sep = "\t", header=TRUE, row.names = 1)
-row_od = c("BIN1")
-p2_l1.mat <- as.matrix(p2_l1)
-ha = rowAnnotation(foo = anno_empty(border = TRUE))
-ht = HeatmapAnnotation(top = anno_empty(border = FALSE))
-#pdf("figures/heatmaps/p2_l1.pdf", width = 14, height = 10)
-Heatmap(p2_l1.mat, name = "log2(aFC)", #column_title = "eQTL SNPs",
-        col = colors, na_col = "white", #row_title = "shared eGenes",
-        cluster_rows = FALSE, cluster_columns = FALSE, row_names_side = "left",
-        column_names_side = "top", row_names_gp = gpar(fontface = "italic"),
-        row_order = row_od,
-        width = unit(10, "cm"), height = unit(3, "cm"),
-        right_annotation = ha, top_annotation = ht,
-        border = TRUE, rect_gp = gpar(col = "grey"))
-decorate_annotation("foo", slice = 1, {
-  grid.rect(x = 0, width = unit(10, "mm"), gp = gpar(fill = NA, col = NA), just = "left")
-  grid.text(paste("Level 1", collapse = "\n"), x = unit(5, "mm"), just = "centre", rot = 90,
-            gp = gpar(fontsize = 13, fontface = "bold"))})
-decorate_annotation("top", slice = 1, {
-  grid.rect(x = 0, width = unit(0.7, "mm"), gp = gpar(fill = NA, col = NA), just = "centre")})
-#dev.off()
-```
+# hhip <- lsppin.df[grep(c('HHIP'), lsppin.df[, c("p1")]), ]
+# fam13a <- lsppin.df[grep(c('FAM13A'), lsppin.df[, c("p1")]), ]
+# chrna3 <- lsppin.df[grep(c('CHRNA3'), lsppin.df[, c("p1")]), ]
+# chrna5 <- lsppin.df[grep(c('CHRNA5'), lsppin.df[, c("p1")]), ]
+# ireb2 <- lsppin.df[grep(c('IREB2'), lsppin.df[, c("p1")]), ]
+# hykk <- lsppin.df[grep(c('HYKK'), lsppin.df[, c("p1")]), ]
 
-```{r disgenet_query, fig.width=10, fig.height=7}
-auth_params <- list("email"="e.golovina@auckland.ac.nz","password"="2022Genes!13")
-api_host <- "https://www.disgenet.org/api"
-api_key <- NULL
-
-r <-POST(paste(api_host,"/auth/", sep=""), body=auth_params)
-if(status_code(r)==200){
-    #Lets store the api key in a new variable and use it again in new requests
-    json_response <- content(r, "parsed")
-    api_key <- json_response$token
-    print(paste(api_key," This is your user API key.",sep="")) #Comment this line if you don't want your API key to show up in the terminal
-} else {
-  print(status_code(r))
-  print(content(r, "parsed"))
-}
-if(!is.null(api_key)){
-    #Store the api key into a named list with the following format, see next line.
-    authorization_headers <- c(Authorization=paste("Bearer ",api_key, sep=""))
-    #Lets get all the diseases associated to a gene eg. APP (EntrezID 351) and restricted by a source.
-    gda_response <- GET(paste(api_host,"/gda/gene/351",sep=""), query=list(source="UNIPROT"), add_headers(.headers=authorization_headers)) #All protected endpoints require the add_headers and the authorization token in order to be accessed.
-    print(content(gda_response, "parsed"))
-}
+# Testing
+#lsppin.df[grep(c('CTSS'), lsppin.df[, c("p1")]), ] # score = 928
+#lsppin.df[grep(c('HLA-DQA2'), lsppin.df[, c("p1")]), ] # score = 928
 ```
