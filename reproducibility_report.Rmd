@@ -703,7 +703,7 @@ ggplot(lung.map.ppis, aes(x = "", y = percentage, fill = ppis)) +
 #dev.off()
 ```
 
-### 3.2. [UPDATE] Number of unique human proteins in the STRING PPI network and the lung-specific PPI network.
+### 3.2. Number of unique human proteins in the STRING PPI network and the lung-specific PPI network.
 
 ```{r proteins}
 # getting the number per chromosome
@@ -712,9 +712,9 @@ lsspin_proteins <- unique(c(lsppin_700$V1, lsppin_700$V2)) # 10,188
 
 lung.map.p <- data.frame(
   ppis = rep(c("LSPPIN","STRING")),
-  number = c(10188, (16814-10188)),
-  percentage = c(round((10188/16814)*100, 2),
-                 round(((16814-10188)/16814)*100, 2)))
+  number = c(length(lsspin_proteins), (length(string_proteins)-length(lsspin_proteins))),
+  percentage = c(round((length(lsspin_proteins)/length(string_proteins))*100, 2),
+                 round(((length(string_proteins)-length(lsspin_proteins))/length(string_proteins))*100, 2)))
 
 #pdf("figures/lung_eqtl_map/lung_map_proteins.pdf", width = 9, height = 9)
 ggplot(lung.map.p, aes(x = "", y = percentage, fill = ppis)) +
