@@ -1,6 +1,6 @@
 # De novo discovery of traits co-occurring with chronic obstructive pulmonary disease.
 
-This repository contains scripts, data, results, figures and reproducibility report for "De novo discovery of traits co-occurring with chronic obstructive pulmonary disease" study. In this study, we have integrated information across different biological levels (i.e. genetic variants, lung-specific 3D genome structure, gene expression and protein-protein interactions) to build lung-specific gene regulatory and protein-protein interaction networks. We have queried these networks using disease-associated SNPs for chronic obstructive pulmonary disease (COPD), unipolar depression (UD) and coronary artery disease (CAD).
+This repository contains scripts, data, results, figures and reproducibility report for "De novo discovery of traits co-occurring with chronic obstructive pulmonary disease" study published in [Life Science Alliance](https://www.life-science-alliance.org/content/6/3/e202201609). In this study, we have integrated information across different biological levels (i.e. genetic variants, lung-specific 3D genome structure, gene expression and protein-protein interactions) to build lung-specific gene regulatory and protein-protein interaction networks. We have queried these networks using disease-associated SNPs for chronic obstructive pulmonary disease (COPD), unipolar depression (UD) and coronary artery disease (CAD).
 
 Python (version 3.6.9), R (version 4.0.2) and RStudio (version 1.2.5033) were used for data processing, analysis and visualisation.
 
